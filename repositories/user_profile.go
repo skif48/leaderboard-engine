@@ -8,8 +8,9 @@ import (
 )
 
 type UserProfileRepository interface {
-	SignUp(r *entities.UserProfile) error
+	SignUp(r *entities.CreateUserProfileDto) (*entities.UserProfile, error)
 	GetUserProfile(userId string) (*entities.UserProfile, error)
+	Purge() error
 }
 
 type UserProfileRepositoryScylla struct {
@@ -42,8 +43,9 @@ func NewUserProfileRepository() UserProfileRepository {
 	return &UserProfileRepositoryScylla{scyllaClient: &session}
 }
 
-func (u *UserProfileRepositoryScylla) SignUp(r *entities.UserProfile) error {
+func (u *UserProfileRepositoryScylla) SignUp(r *entities.CreateUserProfileDto) (*entities.UserProfile, error) {
 	id, _ := gocql.RandomUUID()
+	createdAt := time.Now()
 	q := u.scyllaClient.Query(
 		`INSERT INTO leaderboard.user_profile (id,nickname,xp,level,leaderboard,created_at) VALUES (?,?,?,?,?,?)`,
 		[]string{":id", ":nickname", ":xp", ":level", ":leaderboard", ":created_at"}).
@@ -53,9 +55,19 @@ func (u *UserProfileRepositoryScylla) SignUp(r *entities.UserProfile) error {
 			":xp":          r.Xp,
 			":level":       r.Level,
 			":leaderboard": r.Leaderboard,
-			":created_at":  time.Now(),
+			":created_at":  createdAt,
 		})
-	return q.Exec()
+	if err := q.ExecRelease(); err != nil {
+		return nil, err
+	}
+	return &entities.UserProfile{
+		Id:          id.String(),
+		Nickname:    r.Nickname,
+		Xp:          r.Xp,
+		Level:       r.Level,
+		Leaderboard: r.Leaderboard,
+		CreatedAt:   createdAt.UnixMilli(),
+	}, nil
 }
 
 func (u *UserProfileRepositoryScylla) GetUserProfile(userId string) (*entities.UserProfile, error) {
@@ -69,5 +81,8 @@ func (u *UserProfileRepositoryScylla) GetUserProfile(userId string) (*entities.U
 	}
 
 	return userProfile, nil
+}
 
+func (u *UserProfileRepositoryScylla) Purge() error {
+	return u.scyllaClient.Query(`TRUNCATE leaderboard.user_profile`, nil).Exec()
 }
