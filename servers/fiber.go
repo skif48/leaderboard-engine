@@ -32,9 +32,11 @@ func RunHttpServer(repo repositories.UserProfileRepository, gas *services.GameAc
 
 	app.Post("/backoffice-api/purge", h.Purge)
 
-	if err := app.Listen(":3000"); err != nil {
-		panic(err)
-	}
+	go func() {
+		if err := app.Listen(":3000"); err != nil {
+			panic(err)
+		}
+	}()
 }
 
 func (s *HttpHandler) GetUserProfile(c fiber.Ctx) error {

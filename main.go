@@ -14,7 +14,7 @@ func main() {
 			repositories.NewUserProfileRepository,
 			services.NewGameActionsService,
 		),
-		fx.Invoke(servers.RunHttpServer),
+		fx.Invoke(servers.RunHttpServer, servers.RunKafkaConsumer),
 	)
 
 	if err := app.Err(); err != nil {
@@ -24,4 +24,5 @@ func main() {
 	if err := app.Start(context.Background()); err != nil {
 		panic(err)
 	}
+	<-app.Done()
 }
