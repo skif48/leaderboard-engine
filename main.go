@@ -4,12 +4,16 @@ import (
 	"context"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/servers"
+	"github.com/skif48/leaderboard-engine/services"
 	"go.uber.org/fx"
 )
 
 func main() {
 	app := fx.New(
-		fx.Provide(repositories.NewUserProfileRepository),
+		fx.Provide(
+			repositories.NewUserProfileRepository,
+			services.NewGameActionsService,
+		),
 		fx.Invoke(servers.RunHttpServer),
 	)
 

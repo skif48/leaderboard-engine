@@ -10,3 +10,15 @@ GET http://localhost:3000/api/v1/users/784fa117-f152-4ff8-b26b-59e18457b7ed/prof
 
 ###
 POST http://localhost:3000/backoffice-api/purge
+
+###
+
+POST http://localhost:3000/api/v1/users/actions
+Content-Type: application/json
+
+{
+  "user_id": "some_user_id",
+  "action": "some_action",
+  "timestamp": 123456789
+}
+###

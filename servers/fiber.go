@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/repositories"
+	"github.com/skif48/leaderboard-engine/services"
 	"log/slog"
 	"math/rand/v2"
 )
@@ -15,15 +16,18 @@ func randRange(min, max int) int {
 
 type HttpHandler struct {
 	repo repositories.UserProfileRepository
+	gas  *services.GameActionsService
 }
 
-func RunHttpServer(repo repositories.UserProfileRepository) {
+func RunHttpServer(repo repositories.UserProfileRepository, gas *services.GameActionsService) {
 	h := &HttpHandler{
 		repo: repo,
+		gas:  gas,
 	}
 	app := fiber.New()
 
 	app.Post("/api/v1/users/sign-up", h.SignUp)
+	app.Post("/api/v1/users/actions", h.Action)
 	app.Get("/api/v1/users/:userId/profile", h.GetUserProfile)
 
 	app.Post("/backoffice-api/purge", h.Purge)
@@ -65,6 +69,19 @@ func (s *HttpHandler) SignUp(c fiber.Ctx) error {
 	}
 	c.Status(fiber.StatusCreated)
 	return c.JSON(userProfile)
+}
+
+func (s *HttpHandler) Action(c fiber.Ctx) error {
+	req := &entities.GameAction{}
+	if err := json.Unmarshal(c.Body(), req); err != nil {
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+
+	if err := s.gas.Action(req); err != nil {
+		slog.Error(err.Error())
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	return c.SendStatus(fiber.StatusAccepted)
 }
 
 func (s *HttpHandler) Purge(c fiber.Ctx) error {
