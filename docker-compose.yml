@@ -52,3 +52,15 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:19092
     depends_on:
       - kafka1
+
+  redis:
+    image: grokzen/redis-cluster:7.0.10
+    ports:
+      - "7000:7000"
+      - "7001:7001"
+      - "7002:7002"
+      - "7003:7003"
+      - "7004:7004"
+      - "7005:7005"
+    environment:
+      IP: 0.0.0.0

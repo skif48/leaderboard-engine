@@ -3,15 +3,20 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/segmentio/kafka-go"
 	"github.com/skif48/leaderboard-engine/entities"
+	"github.com/skif48/leaderboard-engine/repositories"
 )
 
 type GameActionsService struct {
-	kw *kafka.Writer
+	kw  *kafka.Writer
+	lr  repositories.LeaderboardRepo
+	upr repositories.UserProfileRepository
+	gc  *GameConfig
 }
 
-func NewGameActionsService() *GameActionsService {
+func NewGameActionsService(gc *GameConfig, lr repositories.LeaderboardRepo, upr repositories.UserProfileRepository) *GameActionsService {
 	kw := &kafka.Writer{
 		Addr:                   kafka.TCP("localhost:9092"),
 		Topic:                  "game-actions",
@@ -19,10 +24,15 @@ func NewGameActionsService() *GameActionsService {
 		AllowAutoTopicCreation: true,
 	}
 
-	return &GameActionsService{kw: kw}
+	return &GameActionsService{
+		kw:  kw,
+		lr:  lr,
+		upr: upr,
+		gc:  gc,
+	}
 }
 
-func (gas *GameActionsService) Action(action *entities.GameAction) error {
+func (gas *GameActionsService) ProduceAction(action *entities.GameAction) error {
 	bytes, err := json.Marshal(action)
 	if err != nil {
 		return err
@@ -31,4 +41,17 @@ func (gas *GameActionsService) Action(action *entities.GameAction) error {
 		Key:   []byte(action.UserId),
 		Value: bytes,
 	})
+}
+
+func (gas *GameActionsService) HandleAction(action *entities.GameAction) error {
+	score, ok := gas.gc.ActionsScoreMap[action.Action]
+	if !ok {
+		return fmt.Errorf("unknown action: %s", action.Action)
+	}
+	userProfile, err := gas.upr.GetUserProfile(action.UserId)
+	if err != nil {
+		return err
+	}
+	_, err = gas.lr.UpdateScore(userProfile.Leaderboard, action.UserId, score)
+	return err
 }

@@ -62,7 +62,7 @@ func (s *HttpHandler) SignUp(c fiber.Ctx) error {
 		Nickname:    req.Nickname,
 		Xp:          0,
 		Level:       0,
-		Leaderboard: randRange(0, 1000),
+		Leaderboard: randRange(0, 2),
 	}
 	userProfile, err := s.repo.SignUp(createDto)
 	if err != nil {
@@ -79,7 +79,7 @@ func (s *HttpHandler) Action(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	if err := s.gas.Action(req); err != nil {
+	if err := s.gas.ProduceAction(req); err != nil {
 		slog.Error(err.Error())
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}

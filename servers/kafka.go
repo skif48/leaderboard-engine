@@ -2,33 +2,51 @@ package servers
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/segmentio/kafka-go"
+	"github.com/skif48/leaderboard-engine/entities"
+	"github.com/skif48/leaderboard-engine/services"
 	"log/slog"
 )
 
 type KafkaConsumer struct {
-	r *kafka.Reader
+	r   *kafka.Reader
+	gas *services.GameActionsService
 }
 
-func RunKafkaConsumer() {
+func RunKafkaConsumer(gas *services.GameActionsService) {
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{"localhost:9092"},
 		GroupID: "consumer-group-id",
 		Topic:   "game-actions",
 	})
 
-	kc := &KafkaConsumer{r: r}
+	kc := &KafkaConsumer{
+		r:   r,
+		gas: gas,
+	}
 
 	go kc.listen()
 }
 
 func (kc *KafkaConsumer) listen() {
 	for {
-		m, err := kc.r.ReadMessage(context.Background())
+		m, err := kc.r.FetchMessage(context.Background())
 		if err != nil {
 			slog.Error(err.Error())
 			break
 		}
-		slog.Info(string(m.Value))
+		gameAction := &entities.GameAction{}
+		if err := json.Unmarshal(m.Value, gameAction); err != nil {
+			slog.Error(err.Error())
+		}
+		err = kc.gas.HandleAction(gameAction)
+		if err != nil {
+			slog.Error(err.Error())
+			continue
+		}
+		if err := kc.r.CommitMessages(context.Background(), m); err != nil {
+			slog.Error(err.Error())
+		}
 	}
 }

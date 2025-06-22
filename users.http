@@ -17,8 +17,8 @@ POST http://localhost:3000/api/v1/users/actions
 Content-Type: application/json
 
 {
-  "user_id": "some_user_id",
-  "action": "some_action",
+  "user_id": "7adcc75e-6ee5-4b57-808f-dbdbd719451e",
+  "action": "triple_kill",
   "timestamp": 123456789
 }
 ###

@@ -1,0 +1,14 @@
+{
+  "actions_score_map": {
+    "spawn": 1,
+    "some": 2,
+    "heal": 3,
+    "upgrade_armor": 4,
+    "upgrade_weapon": 5,
+    "save": 6,
+    "damage": 7,
+    "kill": 8,
+    "double_kill": 9,
+    "triple_kill": 10
+  }
+}

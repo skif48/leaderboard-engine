@@ -12,7 +12,9 @@ func main() {
 	app := fx.New(
 		fx.Provide(
 			repositories.NewUserProfileRepository,
+			repositories.NewLeaderboardRepo,
 			services.NewGameActionsService,
+			services.NewGameConfig,
 		),
 		fx.Invoke(servers.RunHttpServer, servers.RunKafkaConsumer),
 	)
