@@ -39,7 +39,7 @@ func (l *LeaderboardRedisRepo) AddUser(leaderboard int, userId string) error {
 
 func (l *LeaderboardRedisRepo) UpdateScore(leaderboard int, userId string, score int) (int, error) {
 	updateScoreCmd := l.c.B().Zadd().Key(l.key(leaderboard)).ScoreMember().ScoreMember(float64(score), userId).Build()
-	finalScoreCmd := l.c.B().Zrank().Key(l.key(leaderboard)).Member(userId).Withscore().Build()
+	finalScoreCmd := l.c.B().Zscore().Key(l.key(leaderboard)).Member(userId).Build()
 	res := l.c.DoMulti(
 		context.Background(),
 		l.c.B().Multi().Build(),
@@ -52,11 +52,16 @@ func (l *LeaderboardRedisRepo) UpdateScore(leaderboard int, userId string, score
 			return 0, r.Error()
 		}
 	}
-	resultingScore, err := res[2].AsInt64()
+	execResults, err := res[3].AsFloatSlice()
 	if err != nil {
 		return 0, err
 	}
-	return int(resultingScore), nil
+
+	if len(execResults) < 2 {
+		return 0, fmt.Errorf("unexpected number of results from transaction")
+	}
+
+	return int(execResults[1]), nil
 }
 
 func (l *LeaderboardRedisRepo) GetLeaderboard(leaderboard int) ([]*entities.LeaderboardScore, error) {

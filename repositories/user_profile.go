@@ -1,23 +1,28 @@
 package repositories
 
 import (
+	"fmt"
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/skif48/leaderboard-engine/entities"
+	"github.com/skif48/leaderboard-engine/game_config"
 	"time"
 )
 
 type UserProfileRepository interface {
 	SignUp(r *entities.CreateUserProfileDto) (*entities.UserProfile, error)
 	GetUserProfile(userId string) (*entities.UserProfile, error)
+	UpdateXp(userId string, score int) (int, int, bool, error)
 	Purge() error
 }
 
 type UserProfileRepositoryScylla struct {
 	scyllaClient *gocqlx.Session
+
+	gc *game_config.GameConfig
 }
 
-func NewUserProfileRepository() UserProfileRepository {
+func NewUserProfileRepository(gc *game_config.GameConfig) UserProfileRepository {
 	cluster := gocql.NewCluster("127.0.0.1")
 	session, err := gocqlx.WrapSession(cluster.CreateSession())
 
@@ -36,11 +41,11 @@ func NewUserProfileRepository() UserProfileRepository {
     	level int,
     	leaderboard int,
     	created_at timestamp,
-    	PRIMARY KEY (id, created_at)) WITH CLUSTERING ORDER BY (created_at DESC)`, nil).Exec()
+    	PRIMARY KEY (id))`, nil).Exec()
 	if err != nil {
 		panic(err)
 	}
-	return &UserProfileRepositoryScylla{scyllaClient: &session}
+	return &UserProfileRepositoryScylla{scyllaClient: &session, gc: gc}
 }
 
 func (u *UserProfileRepositoryScylla) SignUp(r *entities.CreateUserProfileDto) (*entities.UserProfile, error) {
@@ -81,6 +86,45 @@ func (u *UserProfileRepositoryScylla) GetUserProfile(userId string) (*entities.U
 	}
 
 	return userProfile, nil
+}
+
+func (u *UserProfileRepositoryScylla) UpdateXp(userId string, score int) (int, int, bool, error) {
+	for {
+		userProfile, err := u.GetUserProfile(userId)
+		if err != nil {
+			return 0, 0, false, err
+		}
+		if userProfile == nil {
+			return 0, 0, false, fmt.Errorf("user not found during xp update")
+		}
+
+		newXp := userProfile.Xp + score
+		newLevel := userProfile.Level
+
+		for i, threshold := range u.gc.XpToLevelThresholds {
+			if newXp >= threshold && userProfile.Level <= i {
+				newLevel = i + 1
+			}
+		}
+
+		applied := false
+		tempUserLevel := 0
+		tempUserXp := 0
+		updateQuery := u.scyllaClient.Query(`
+			UPDATE leaderboard.user_profile
+			SET xp = ?, level = ?
+			WHERE id = ?
+			IF xp = ? AND level = ?`, nil).
+			Bind(newXp, newLevel, userId, userProfile.Xp, userProfile.Level)
+
+		if err := updateQuery.Scan(&applied, &tempUserLevel, &tempUserXp); err != nil {
+			return 0, 0, false, err
+		}
+
+		if applied {
+			return newXp, newLevel, newLevel > userProfile.Level, nil
+		}
+	}
 }
 
 func (u *UserProfileRepositoryScylla) Purge() error {

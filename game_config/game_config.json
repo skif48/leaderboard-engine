@@ -10,5 +10,13 @@
     "kill": 8,
     "double_kill": 9,
     "triple_kill": 10
-  }
+  },
+  "xp_to_level_thresholds": [
+    10,
+    25,
+    50,
+    100,
+    200,
+    300
+  ]
 }

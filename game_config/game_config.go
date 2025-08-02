@@ -1,4 +1,4 @@
-package services
+package game_config
 
 import (
 	_ "embed"
@@ -6,7 +6,8 @@ import (
 )
 
 type GameConfig struct {
-	ActionsScoreMap map[string]int `json:"actions_score_map"`
+	ActionsScoreMap     map[string]int `json:"actions_score_map"`
+	XpToLevelThresholds []int          `json:"xp_to_level_thresholds"`
 }
 
 //go:embed game_config.json

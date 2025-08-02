@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/segmentio/kafka-go"
 	"github.com/skif48/leaderboard-engine/entities"
+	"github.com/skif48/leaderboard-engine/game_config"
 	"github.com/skif48/leaderboard-engine/repositories"
 )
 
@@ -13,10 +14,10 @@ type GameActionsService struct {
 	kw  *kafka.Writer
 	lr  repositories.LeaderboardRepo
 	upr repositories.UserProfileRepository
-	gc  *GameConfig
+	gc  *game_config.GameConfig
 }
 
-func NewGameActionsService(gc *GameConfig, lr repositories.LeaderboardRepo, upr repositories.UserProfileRepository) *GameActionsService {
+func NewGameActionsService(gc *game_config.GameConfig, lr repositories.LeaderboardRepo, upr repositories.UserProfileRepository) *GameActionsService {
 	kw := &kafka.Writer{
 		Addr:                   kafka.TCP("localhost:9092"),
 		Topic:                  "game-actions",
@@ -53,5 +54,13 @@ func (gas *GameActionsService) HandleAction(action *entities.GameAction) error {
 		return err
 	}
 	_, err = gas.lr.UpdateScore(userProfile.Leaderboard, action.UserId, score)
+	if err != nil {
+		return err
+	}
+	_, _, _, err = gas.upr.UpdateXp(action.UserId, score)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
