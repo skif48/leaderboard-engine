@@ -1,30 +1,55 @@
 package servers
 
 import (
+	_ "embed"
 	"encoding/json"
 	"github.com/gofiber/fiber/v3"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/services"
+	"html/template"
 	"log/slog"
 	"math/rand/v2"
 )
+
+type LeaderboardsPageData struct {
+	Leaderboards map[int][]*entities.LeaderboardScore
+}
 
 func randRange(min, max int) int {
 	return rand.IntN(max-min) + min
 }
 
+//go:embed templates/leaderboards.html
+var leaderboardsHtmlTemplate string
+
 type HttpHandler struct {
-	repo repositories.UserProfileRepository
-	gas  *services.GameActionsService
+	leaderboardsTemplate *template.Template
+
+	repo            repositories.UserProfileRepository
+	leaderboardRepo repositories.LeaderboardRepo
+	gas             *services.GameActionsService
 }
 
-func RunHttpServer(repo repositories.UserProfileRepository, gas *services.GameActionsService) {
+func RunHttpServer(repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, gas *services.GameActionsService) {
+	leaderboardsTemplate, err := template.New("leaderboards.html").Funcs(template.FuncMap{
+		"add": func(a, b int) int {
+			return a + b
+		},
+	}).Parse(leaderboardsHtmlTemplate)
+	if err != nil {
+		panic(err)
+	}
+
 	h := &HttpHandler{
-		repo: repo,
-		gas:  gas,
+		leaderboardsTemplate: leaderboardsTemplate,
+		repo:                 repo,
+		leaderboardRepo:      leaderboardRepo,
+		gas:                  gas,
 	}
 	app := fiber.New()
+
+	app.Get("/leaderboards", h.GetLeaderboardsHTML)
 
 	app.Post("/api/v1/users/sign-up", h.SignUp)
 	app.Post("/api/v1/users/actions", h.Action)
@@ -37,6 +62,21 @@ func RunHttpServer(repo repositories.UserProfileRepository, gas *services.GameAc
 			panic(err)
 		}
 	}()
+}
+
+func (s *HttpHandler) GetLeaderboardsHTML(c fiber.Ctx) error {
+	leaderboards, err := s.leaderboardRepo.GetAllLeaderboards()
+	if err != nil {
+		slog.Error("Failed to get leaderboards data", "error", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	pageData := LeaderboardsPageData{
+		Leaderboards: leaderboards,
+	}
+
+	c.Set("Content-Type", "text/html")
+	return s.leaderboardsTemplate.Execute(c.Response().BodyWriter(), pageData)
 }
 
 func (s *HttpHandler) GetUserProfile(c fiber.Ctx) error {

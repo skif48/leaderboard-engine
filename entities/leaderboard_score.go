@@ -1,6 +1,8 @@
 package entities
 
 type LeaderboardScore struct {
-	UserId string `json:"user_id"`
-	Score  int    `json:"score"`
+	Leaderboard int    `json:"leaderboard"`
+	UserId      string `json:"user_id"`
+	Score       int    `json:"score"`
+	Position    int    `json:"position"`
 }

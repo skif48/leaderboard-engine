@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboards</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .auto-refresh-indicator {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+            font-size: 14px;
+        }
+        .leaderboard {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .leaderboard h2 {
+            color: #444;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .scores-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .scores-table th,
+        .scores-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .scores-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+        .scores-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        .rank {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .empty-leaderboard {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Leaderboards</h1>
+        
+        <div id="autoRefreshIndicator" class="auto-refresh-indicator" style="display: none;">
+            Auto-refresh enabled. Next refresh in: <span id="countdown"></span> seconds
+        </div>
+        
+        {{range $leaderboardId, $scores := .Leaderboards}}
+        <div class="leaderboard">
+            <h2>Leaderboard {{$leaderboardId}}</h2>
+            
+            {{if $scores}}
+            <table class="scores-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Player</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $index, $score := $scores}}
+                    <tr>
+                        <td class="rank">{{$score.Position}}</td>
+                        <td>{{$score.UserId}}</td>
+                        <td>{{$score.Score}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="empty-leaderboard">
+                No scores available for this leaderboard
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+
+    <script>
+        (function() {
+            // Get URL parameters
+            function getUrlParameter(name) {
+                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+                var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+                var results = regex.exec(location.search);
+                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+            }
+
+            // Check for autoRefresh parameter
+            var autoRefreshParam = getUrlParameter('autoRefresh');
+            
+            if (autoRefreshParam) {
+                var refreshInterval = parseInt(autoRefreshParam, 10);
+                
+                // Validate that it's a positive integer
+                if (isNaN(refreshInterval) || refreshInterval <= 0) {
+                    console.warn('Invalid autoRefresh parameter. Must be a positive integer.');
+                    return;
+                }
+
+                // Show the auto-refresh indicator
+                var indicator = document.getElementById('autoRefreshIndicator');
+                var countdown = document.getElementById('countdown');
+                indicator.style.display = 'block';
+                
+                var timeLeft = refreshInterval;
+                countdown.textContent = timeLeft;
+
+                // Update countdown every second
+                var countdownInterval = setInterval(function() {
+                    timeLeft--;
+                    countdown.textContent = timeLeft;
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(countdownInterval);
+                        // Refresh the page while preserving the autoRefresh parameter
+                        window.location.reload();
+                    }
+                }, 1000);
+
+                // Set up the main refresh interval
+                setTimeout(function() {
+                    window.location.reload();
+                }, refreshInterval * 1000);
+            }
+        })();
+    </script>
+</body>
+</html>
