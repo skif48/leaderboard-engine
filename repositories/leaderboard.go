@@ -99,6 +99,7 @@ func (l *LeaderboardRedisRepo) GetLeaderboard(leaderboard int) ([]*entities.Lead
 		return nil, err
 	}
 	scores := make([]*entities.LeaderboardScore, 0, len(userIds))
+	//apparently rueidis doesn't know how to parse zrange rev withscores so had to do this manually
 	for position, userId := range userIds {
 		score, err := l.c.Do(context.Background(), l.c.B().Zscore().Key(l.key(leaderboard)).Member(userId).Build()).AsFloat64()
 		if err != nil {
