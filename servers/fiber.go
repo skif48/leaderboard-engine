@@ -3,7 +3,9 @@ package servers
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"github.com/gofiber/fiber/v3"
+	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/services"
@@ -13,7 +15,7 @@ import (
 )
 
 type LeaderboardsPageData struct {
-	Leaderboards map[int][]*entities.LeaderboardScore
+	Leaderboards map[int][]*entities.LeaderboardScoreFull
 }
 
 func randRange(min, max int) int {
@@ -29,9 +31,10 @@ type HttpHandler struct {
 	repo            repositories.UserProfileRepository
 	leaderboardRepo repositories.LeaderboardRepo
 	gas             *services.GameActionsService
+	ls              *services.LeaderboardService
 }
 
-func RunHttpServer(repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, gas *services.GameActionsService) {
+func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, gas *services.GameActionsService, ls *services.LeaderboardService) {
 	leaderboardsTemplate, err := template.New("leaderboards.html").Funcs(template.FuncMap{
 		"add": func(a, b int) int {
 			return a + b
@@ -46,6 +49,7 @@ func RunHttpServer(repo repositories.UserProfileRepository, leaderboardRepo repo
 		repo:                 repo,
 		leaderboardRepo:      leaderboardRepo,
 		gas:                  gas,
+		ls:                   ls,
 	}
 	app := fiber.New()
 
@@ -58,14 +62,14 @@ func RunHttpServer(repo repositories.UserProfileRepository, leaderboardRepo repo
 	app.Post("/backoffice-api/purge", h.Purge)
 
 	go func() {
-		if err := app.Listen(":3000"); err != nil {
+		if err := app.Listen(fmt.Sprintf(":%d", ac.FiberPort)); err != nil {
 			panic(err)
 		}
 	}()
 }
 
 func (s *HttpHandler) GetLeaderboardsHTML(c fiber.Ctx) error {
-	leaderboards, err := s.leaderboardRepo.GetAllLeaderboards()
+	leaderboards, err := s.ls.GetAllLeaderboards()
 	if err != nil {
 		slog.Error("Failed to get leaderboards data", "error", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
@@ -102,7 +106,7 @@ func (s *HttpHandler) SignUp(c fiber.Ctx) error {
 		Nickname:    req.Nickname,
 		Xp:          0,
 		Level:       0,
-		Leaderboard: randRange(0, 2),
+		Leaderboard: randRange(0, 5),
 	}
 	userProfile, err := s.repo.SignUp(createDto)
 	if err != nil {

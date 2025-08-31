@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -49,6 +50,103 @@ type ActionRequest struct {
 type BotUser struct {
 	ID       string
 	Nickname string
+}
+
+// NicknameGenerator contains lists of words for generating friendly nicknames
+type NicknameGenerator struct {
+	adjectives []string
+	nouns      []string
+	colors     []string
+}
+
+// NewNicknameGenerator creates a new nickname generator with predefined word lists
+func NewNicknameGenerator() *NicknameGenerator {
+	return &NicknameGenerator{
+		adjectives: []string{
+			"Happy", "Clever", "Bright", "Swift", "Kind", "Gentle", "Brave", "Calm",
+			"Cheerful", "Wise", "Friendly", "Jolly", "Lively", "Merry", "Noble", "Peaceful",
+			"Quick", "Smart", "Sunny", "Warm", "Amazing", "Awesome", "Cool", "Epic",
+			"Fantastic", "Great", "Mighty", "Super", "Wonderful", "Brilliant", "Creative",
+			"Dynamic", "Energetic", "Fantastic", "Graceful", "Humble", "Inspiring", "Joyful",
+		},
+		nouns: []string{
+			"Explorer", "Builder", "Creator", "Dreamer", "Hunter", "Seeker", "Wanderer", "Guardian",
+			"Champion", "Hero", "Legend", "Master", "Pioneer", "Sage", "Scholar", "Warrior",
+			"Artist", "Inventor", "Navigator", "Pilot", "Runner", "Swimmer", "Climber", "Dancer",
+			"Singer", "Writer", "Player", "Gamer", "Coder", "Hacker", "Ninja", "Wizard",
+			"Knight", "Ranger", "Scout", "Captain", "Admiral", "General", "Commander", "Leader",
+		},
+		colors: []string{
+			"Blue", "Green", "Red", "Purple", "Orange", "Yellow", "Pink", "Cyan",
+			"Silver", "Gold", "Crimson", "Azure", "Emerald", "Violet", "Amber", "Rose",
+			"Coral", "Mint", "Lime", "Teal", "Indigo", "Magenta", "Turquoise", "Lavender",
+		},
+	}
+}
+
+// GenerateNickname creates a friendly, human-readable nickname
+func (ng *NicknameGenerator) GenerateNickname() string {
+	patterns := []func() string{
+		// Pattern 1: Adjective + Noun (e.g., "CleverExplorer")
+		func() string {
+			adj := ng.adjectives[rand.Intn(len(ng.adjectives))]
+			noun := ng.nouns[rand.Intn(len(ng.nouns))]
+			return adj + noun
+		},
+		// Pattern 2: Color + Noun (e.g., "BlueWizard")
+		func() string {
+			color := ng.colors[rand.Intn(len(ng.colors))]
+			noun := ng.nouns[rand.Intn(len(ng.nouns))]
+			return color + noun
+		},
+		// Pattern 3: Adjective + Color + Noun (e.g., "BraveBlueKnight")
+		func() string {
+			adj := ng.adjectives[rand.Intn(len(ng.adjectives))]
+			color := ng.colors[rand.Intn(len(ng.colors))]
+			noun := ng.nouns[rand.Intn(len(ng.nouns))]
+			return adj + color + noun
+		},
+		// Pattern 4: Noun + Number (e.g., "Explorer42")
+		func() string {
+			noun := ng.nouns[rand.Intn(len(ng.nouns))]
+			number := rand.Intn(100) + 1
+			return fmt.Sprintf("%s%d", noun, number)
+		},
+		// Pattern 5: Adjective + Noun + Number (e.g., "SwiftRunner7")
+		func() string {
+			adj := ng.adjectives[rand.Intn(len(ng.adjectives))]
+			noun := ng.nouns[rand.Intn(len(ng.nouns))]
+			number := rand.Intn(100) + 1
+			return fmt.Sprintf("%s%s%d", adj, noun, number)
+		},
+	}
+
+	// Select a random pattern and generate nickname
+	pattern := patterns[rand.Intn(len(patterns))]
+	return pattern()
+}
+
+// GenerateUniqueNickname generates a nickname and ensures it's unique by adding suffix if needed
+func (ng *NicknameGenerator) GenerateUniqueNickname(usedNicknames map[string]bool) string {
+	maxAttempts := 100
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		nickname := ng.GenerateNickname()
+
+		// Check if nickname is already used
+		if !usedNicknames[strings.ToLower(nickname)] {
+			usedNicknames[strings.ToLower(nickname)] = true
+			return nickname
+		}
+	}
+
+	// If we couldn't generate a unique nickname, add a random suffix
+	baseNickname := ng.GenerateNickname()
+	suffix := rand.Intn(10000)
+	finalNickname := fmt.Sprintf("%s%d", baseNickname, suffix)
+	usedNicknames[strings.ToLower(finalNickname)] = true
+
+	return finalNickname
 }
 
 func main() {
@@ -175,6 +273,10 @@ func registerUsers(baseURL string, userCount int) ([]BotUser, error) {
 
 	errChan := make(chan error, userCount)
 
+	// Initialize nickname generator and tracking
+	nicknameGen := NewNicknameGenerator()
+	usedNicknames := make(map[string]bool)
+
 	slog.Info("Starting user registration", "user_count", userCount)
 
 	for i := 0; i < userCount; i++ {
@@ -182,7 +284,11 @@ func registerUsers(baseURL string, userCount int) ([]BotUser, error) {
 		go func(index int) {
 			defer wg.Done()
 
-			nickname := fmt.Sprintf("bot_%d_%d", index+1, rand.Int31())
+			// Generate a unique, friendly nickname
+			mu.Lock()
+			nickname := nicknameGen.GenerateUniqueNickname(usedNicknames)
+			mu.Unlock()
+
 			userID, err := registerUser(baseURL, nickname)
 			if err != nil {
 				slog.Error("Failed to register user", "nickname", nickname, "error", err)

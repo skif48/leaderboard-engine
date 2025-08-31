@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/game_config"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/servers"
@@ -12,9 +13,11 @@ import (
 func main() {
 	app := fx.New(
 		fx.Provide(
+			app_config.NewAppConfig,
 			repositories.NewUserProfileRepository,
 			repositories.NewLeaderboardRepo,
 			services.NewGameActionsService,
+			services.NewLeaderboardService,
 			game_config.NewGameConfig,
 		),
 		fx.Invoke(servers.RunHttpServer, servers.RunKafkaConsumer),

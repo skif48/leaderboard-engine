@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/segmentio/kafka-go"
+	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/services"
 	"log/slog"
@@ -14,11 +15,11 @@ type KafkaConsumer struct {
 	gas *services.GameActionsService
 }
 
-func RunKafkaConsumer(gas *services.GameActionsService) {
+func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService) {
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{"localhost:9092"},
-		GroupID: "consumer-group-id",
-		Topic:   "game-actions",
+		Brokers: ac.KafkaBrokers,
+		GroupID: ac.KafkaConsumerGroupId,
+		Topic:   ac.KafkaTopic,
 	})
 
 	kc := &KafkaConsumer{

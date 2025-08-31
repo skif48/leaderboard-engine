@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/redis/rueidis"
+	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"strconv"
 )
@@ -13,6 +14,7 @@ type LeaderboardRepo interface {
 	UpdateScore(leaderboard int, userId string, score int) (int, error)
 	GetLeaderboard(leaderboard int) ([]*entities.LeaderboardScore, error)
 	GetAllLeaderboards() (map[int][]*entities.LeaderboardScore, error)
+	GetAllLeaderboardsIds() ([]int, error)
 	Purge() error
 }
 
@@ -20,9 +22,9 @@ type LeaderboardRedisRepo struct {
 	c rueidis.Client
 }
 
-func NewLeaderboardRepo() LeaderboardRepo {
+func NewLeaderboardRepo(ac *app_config.AppConfig) LeaderboardRepo {
 	client, err := rueidis.NewClient(rueidis.ClientOption{
-		InitAddress: []string{"127.0.0.1:6379"},
+		InitAddress: []string{ac.RedisUrl},
 		ShuffleInit: true,
 	})
 	if err != nil {
@@ -38,6 +40,18 @@ func (l *LeaderboardRedisRepo) key(leaderboard int) string {
 
 func (l *LeaderboardRedisRepo) updateActiveLeaderboards(leaderboard int) error {
 	return l.c.Do(context.Background(), l.c.B().Sadd().Key("leaderboards").Member(strconv.Itoa(leaderboard)).Build()).Error()
+}
+
+func (L *LeaderboardRedisRepo) GetAllLeaderboardsIds() ([]int, error) {
+	leaderBoards64, err := L.c.Do(context.Background(), L.c.B().Smembers().Key("leaderboards").Build()).AsIntSlice()
+	if err != nil {
+		return nil, err
+	}
+	leaderBoards := make([]int, 0, len(leaderBoards64))
+	for _, leaderboard := range leaderBoards64 {
+		leaderBoards = append(leaderBoards, int(leaderboard))
+	}
+	return leaderBoards, nil
 }
 
 func (l *LeaderboardRedisRepo) GetAllLeaderboards() (map[int][]*entities.LeaderboardScore, error) {

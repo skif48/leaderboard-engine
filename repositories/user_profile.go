@@ -3,7 +3,9 @@ package repositories
 import (
 	"fmt"
 	"github.com/gocql/gocql"
+	"github.com/scylladb/gocqlx/qb"
 	"github.com/scylladb/gocqlx/v2"
+	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/game_config"
 	"time"
@@ -11,6 +13,7 @@ import (
 
 type UserProfileRepository interface {
 	SignUp(r *entities.CreateUserProfileDto) (*entities.UserProfile, error)
+	GetManyUserProfiles(userIds []string) ([]*entities.UserProfile, error)
 	GetUserProfile(userId string) (*entities.UserProfile, error)
 	UpdateXp(userId string, score int) (int, int, bool, error)
 	Purge() error
@@ -22,8 +25,8 @@ type UserProfileRepositoryScylla struct {
 	gc *game_config.GameConfig
 }
 
-func NewUserProfileRepository(gc *game_config.GameConfig) UserProfileRepository {
-	cluster := gocql.NewCluster("127.0.0.1")
+func NewUserProfileRepository(ac *app_config.AppConfig, gc *game_config.GameConfig) UserProfileRepository {
+	cluster := gocql.NewCluster(ac.ScyllaUrl)
 	session, err := gocqlx.WrapSession(cluster.CreateSession())
 
 	if err != nil {
@@ -73,6 +76,26 @@ func (u *UserProfileRepositoryScylla) SignUp(r *entities.CreateUserProfileDto) (
 		Leaderboard: r.Leaderboard,
 		CreatedAt:   createdAt.UnixMilli(),
 	}, nil
+}
+
+func (u *UserProfileRepositoryScylla) GetManyUserProfiles(userIds []string) ([]*entities.UserProfile, error) {
+	uuids := make([]gocql.UUID, len(userIds))
+	for i, userIdStr := range userIds {
+		uuid, err := gocql.ParseUUID(userIdStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid UUID format for user ID %s: %w", userIdStr, err)
+		}
+		uuids[i] = uuid
+	}
+
+	stmt, names := qb.Select("leaderboard.user_profile").Where(qb.In("id")).ToCql()
+	q := u.scyllaClient.Query(stmt, names).BindMap(qb.M{"id": uuids})
+
+	var userProfiles []*entities.UserProfile
+	if err := q.SelectRelease(&userProfiles); err != nil {
+		return nil, err
+	}
+	return userProfiles, nil
 }
 
 func (u *UserProfileRepositoryScylla) GetUserProfile(userId string) (*entities.UserProfile, error) {

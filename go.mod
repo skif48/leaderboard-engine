@@ -19,8 +19,10 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/redis/rueidis v1.0.61 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
+	github.com/scylladb/gocqlx v1.5.0 // indirect
 	github.com/scylladb/gocqlx/v2 v2.8.0 // indirect
 	github.com/segmentio/kafka-go v0.4.48 // indirect
+	github.com/sethvargo/go-envconfig v1.3.0 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.62.0 // indirect
