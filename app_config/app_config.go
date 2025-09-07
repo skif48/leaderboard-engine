@@ -10,6 +10,8 @@ import (
 type AppConfig struct {
 	FiberPort int `env:"FIBER_PORT, default=3000"`
 
+	LogLevel string `env:"LOG_LEVEL, default=info"`
+
 	KafkaBrokers                             []string `env:"KAFKA_BROKERS, default=localhost:9092"`
 	KafkaConsumerGroupId                     string   `env:"KAFKA_CONSUMER_GROUP_ID, default=consumer-group-id"`
 	KafkaTopic                               string   `env:"KAFKA_TOPIC, default=game-actions"`
