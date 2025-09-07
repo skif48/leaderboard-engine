@@ -28,6 +28,8 @@ var leaderboardsHtmlTemplate string
 type HttpHandler struct {
 	leaderboardsTemplate *template.Template
 
+	leaderBoardsAmount int
+
 	repo            repositories.UserProfileRepository
 	leaderboardRepo repositories.LeaderboardRepo
 	gas             *services.GameActionsService
@@ -46,6 +48,7 @@ func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileReposi
 
 	h := &HttpHandler{
 		leaderboardsTemplate: leaderboardsTemplate,
+		leaderBoardsAmount:   ac.MaxLeaderboards,
 		repo:                 repo,
 		leaderboardRepo:      leaderboardRepo,
 		gas:                  gas,
@@ -106,7 +109,7 @@ func (s *HttpHandler) SignUp(c fiber.Ctx) error {
 		Nickname:    req.Nickname,
 		Xp:          0,
 		Level:       0,
-		Leaderboard: randRange(0, 5),
+		Leaderboard: randRange(1, s.leaderBoardsAmount+1),
 	}
 	userProfile, err := s.repo.SignUp(createDto)
 	if err != nil {
@@ -122,6 +125,17 @@ func (s *HttpHandler) Action(c fiber.Ctx) error {
 	if err := json.Unmarshal(c.Body(), req); err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
+
+	userProfile, err := s.repo.GetUserProfile(req.UserId)
+	if err != nil {
+		slog.Error(err.Error())
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	if userProfile == nil {
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+
+	req.LeaderboardId = userProfile.Leaderboard
 
 	if err := s.gas.ProduceAction(req); err != nil {
 		slog.Error(err.Error())
