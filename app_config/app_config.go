@@ -5,6 +5,7 @@ import (
 	"github.com/sethvargo/go-envconfig"
 	"log/slog"
 	"os"
+	"time"
 )
 
 type AppConfig struct {
@@ -12,10 +13,13 @@ type AppConfig struct {
 
 	LogLevel string `env:"LOG_LEVEL, default=info"`
 
-	KafkaBrokers                             []string `env:"KAFKA_BROKERS, default=localhost:9092"`
-	KafkaConsumerGroupId                     string   `env:"KAFKA_CONSUMER_GROUP_ID, default=consumer-group-id"`
-	KafkaTopic                               string   `env:"KAFKA_TOPIC, default=game-actions"`
-	KafkaLeaderboardTopicConsumerConcurrency int      `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_CONCURRENCY, default=100"`
+	KafkaBrokers                             []string      `env:"KAFKA_BROKERS, default=localhost:9092"`
+	KafkaConsumerGroupId                     string        `env:"KAFKA_CONSUMER_GROUP_ID, default=consumer-group-id"`
+	KafkaTopic                               string        `env:"KAFKA_TOPIC, default=game-actions"`
+	KafkaLeaderboardTopicConsumerConcurrency int           `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_CONCURRENCY, default=100"`
+	KafkaLeaderboardTopicConsumerMinBytes    int           `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_MIN_BYTES, default=1024"`
+	KafkaLeaderboardTopicConsumerMaxBytes    int           `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_MAX_BYTES, default=10485760"`
+	KafkaLeaderboardTopicConsumerMaxWait     time.Duration `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_MAX_WAI, default=100ms"`
 
 	ScyllaUrl string `env:"SCYLLA_URL, default=127.0.0.1:9042"`
 

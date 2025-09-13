@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/redis/rueidis"
-	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"strconv"
 )
@@ -22,16 +21,8 @@ type LeaderboardRedisRepo struct {
 	c rueidis.Client
 }
 
-func NewLeaderboardRepo(ac *app_config.AppConfig) LeaderboardRepo {
-	client, err := rueidis.NewClient(rueidis.ClientOption{
-		InitAddress: []string{ac.RedisUrl},
-		ShuffleInit: true,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return &LeaderboardRedisRepo{c: client}
+func NewLeaderboardRepo(c rueidis.Client) LeaderboardRepo {
+	return &LeaderboardRedisRepo{c: c}
 }
 
 func (l *LeaderboardRedisRepo) key(leaderboard int) string {

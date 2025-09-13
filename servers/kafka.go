@@ -24,9 +24,12 @@ type KafkaConsumer struct {
 
 func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService) {
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: ac.KafkaBrokers,
-		GroupID: ac.KafkaConsumerGroupId,
-		Topic:   ac.KafkaTopic,
+		Brokers:  ac.KafkaBrokers,
+		GroupID:  ac.KafkaConsumerGroupId,
+		Topic:    ac.KafkaTopic,
+		MinBytes: ac.KafkaLeaderboardTopicConsumerMinBytes,
+		MaxBytes: ac.KafkaLeaderboardTopicConsumerMaxBytes,
+		MaxWait:  ac.KafkaLeaderboardTopicConsumerMaxWait,
 	})
 
 	kc := &KafkaConsumer{

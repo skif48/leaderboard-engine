@@ -8,16 +8,18 @@ import (
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/game_config"
 	"github.com/skif48/leaderboard-engine/repositories"
+	"log/slog"
 )
 
 type GameActionsService struct {
 	kw  *kafka.Writer
 	lr  repositories.LeaderboardRepo
 	upr repositories.UserProfileRepository
+	uxr repositories.UserXpRepository
 	gc  *game_config.GameConfig
 }
 
-func NewGameActionsService(gc *game_config.GameConfig, lr repositories.LeaderboardRepo, upr repositories.UserProfileRepository) *GameActionsService {
+func NewGameActionsService(gc *game_config.GameConfig, lr repositories.LeaderboardRepo, upr repositories.UserProfileRepository, uxr repositories.UserXpRepository) *GameActionsService {
 	kw := &kafka.Writer{
 		Addr:                   kafka.TCP("localhost:9092"),
 		Topic:                  "game-actions",
@@ -29,6 +31,7 @@ func NewGameActionsService(gc *game_config.GameConfig, lr repositories.Leaderboa
 		kw:  kw,
 		lr:  lr,
 		upr: upr,
+		uxr: uxr,
 		gc:  gc,
 	}
 }
@@ -57,9 +60,27 @@ func (gas *GameActionsService) HandleAction(action *entities.GameAction) error {
 	if err != nil {
 		return err
 	}
-	_, _, _, err = gas.upr.UpdateXp(action.UserId, score)
+	newXp, err := gas.uxr.IncrementXp(action.UserId, score)
 	if err != nil {
 		return err
+	}
+
+	newLevel := 0
+
+	for i, threshold := range gas.gc.XpToLevelThresholds {
+		if newXp >= threshold && userProfile.Level <= i {
+			newLevel = i + 1
+		}
+	}
+
+	if newLevel > userProfile.Level {
+		updated, err := gas.upr.UpdateLevel(action.UserId, userProfile.Level, newLevel)
+		if err != nil {
+			return err
+		}
+		if !updated {
+			slog.With("userId", action.UserId).Warn("User level update was ignored, race condition")
+		}
 	}
 
 	return err

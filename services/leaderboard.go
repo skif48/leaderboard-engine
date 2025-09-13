@@ -8,12 +8,14 @@ import (
 type LeaderboardService struct {
 	leaderboardRepo repositories.LeaderboardRepo
 	userProfileRepo repositories.UserProfileRepository
+	userXpRepo      repositories.UserXpRepository
 }
 
-func NewLeaderboardService(leaderboardRepo repositories.LeaderboardRepo, userProfileRepo repositories.UserProfileRepository) *LeaderboardService {
+func NewLeaderboardService(leaderboardRepo repositories.LeaderboardRepo, userProfileRepo repositories.UserProfileRepository, userXpRepo repositories.UserXpRepository) *LeaderboardService {
 	return &LeaderboardService{
 		leaderboardRepo: leaderboardRepo,
 		userProfileRepo: userProfileRepo,
+		userXpRepo:      userXpRepo,
 	}
 }
 
@@ -48,9 +50,11 @@ func (l *LeaderboardService) GetLeaderboard(leaderboardId int) ([]*entities.Lead
 	if err != nil {
 		return nil, err
 	}
+	userXps, err := l.userXpRepo.GetManyUsersXp(userIds)
 
 	userIdToProfile := make(map[string]*entities.UserProfile, len(userProfiles))
 	for _, profile := range userProfiles {
+		profile.Xp = userXps[profile.Id]
 		userIdToProfile[profile.Id] = profile
 	}
 

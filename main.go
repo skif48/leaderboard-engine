@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/game_config"
+	"github.com/skif48/leaderboard-engine/inits"
 	"github.com/skif48/leaderboard-engine/logger"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/servers"
@@ -16,8 +17,10 @@ func main() {
 		fx.Provide(
 			app_config.NewAppConfig,
 			logger.InitLogger,
+			inits.NewRedisClient,
 			repositories.NewUserProfileRepository,
 			repositories.NewLeaderboardRepo,
+			repositories.NewUserXpRepository,
 			services.NewGameActionsService,
 			services.NewLeaderboardService,
 			game_config.NewGameConfig,
