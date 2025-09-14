@@ -1,0 +1,24 @@
+POST http://localhost:3000/api/v1/users/sign-up
+Content-Type: application/json
+
+{
+  "nickname": "super user"
+}
+###
+
+GET http://localhost:3000/api/v1/users/784fa117-f152-4ff8-b26b-59e18457b7ed/profile
+
+###
+POST http://localhost:3000/backoffice-api/purge
+
+###
+
+POST http://localhost:3000/api/v1/users/actions
+Content-Type: application/json
+
+{
+  "user_id": "7adcc75e-6ee5-4b57-808f-dbdbd719451e",
+  "action": "triple_kill",
+  "timestamp": 123456789
+}
+###

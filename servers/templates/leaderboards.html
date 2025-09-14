@@ -1,0 +1,205 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboards</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .auto-refresh-indicator {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+            font-size: 14px;
+        }
+        .leaderboards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        @media (min-width: 768px) {
+            .leaderboards-grid {
+                grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+                max-width: 100%;
+            }
+        }
+        @media (min-width: 1200px) {
+            .leaderboards-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        .leaderboard {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        .leaderboard h2 {
+            color: #444;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .scores-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            flex: 1;
+        }
+        .scores-table th,
+        .scores-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .scores-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+            font-size: 13px;
+        }
+        .scores-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        .rank {
+            font-weight: bold;
+            color: #007bff;
+            width: 50px;
+        }
+        .player-name {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .score {
+            text-align: right;
+            font-weight: 500;
+        }
+        .empty-leaderboard {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Leaderboards</h1>
+
+    <div id="autoRefreshIndicator" class="auto-refresh-indicator" style="display: none;">
+        Auto-refresh enabled. Next refresh in: <span id="countdown"></span> seconds
+    </div>
+
+    <div class="leaderboards-grid">
+        {{range $leaderboardId, $scores := .Leaderboards}}
+        <div class="leaderboard">
+            <h2>Leaderboard {{$leaderboardId}}</h2>
+
+            {{if $scores}}
+            <table class="scores-table">
+                <thead>
+                <tr>
+                    <th class="rank">Rank</th>
+                    <th class="player-name">Player</th>
+                    <th class="score">Score</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range $index, $score := $scores}}
+                <tr>
+                    <td class="rank">{{$score.Position}}</td>
+                    <td class="player-name" title="{{$score.Nickname}}">{{$score.Nickname}}</td>
+                    <td class="score">{{$score.Score}}</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="empty-leaderboard">
+                No scores available for this leaderboard
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+    (function() {
+        // Get URL parameters
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        // Check for autoRefresh parameter
+        var autoRefreshParam = getUrlParameter('autoRefresh');
+
+        if (autoRefreshParam) {
+            var refreshInterval = parseInt(autoRefreshParam, 10);
+
+            // Validate that it's a positive integer
+            if (isNaN(refreshInterval) || refreshInterval <= 0) {
+                console.warn('Invalid autoRefresh parameter. Must be a positive integer.');
+                return;
+            }
+
+            // Show the auto-refresh indicator
+            var indicator = document.getElementById('autoRefreshIndicator');
+            var countdown = document.getElementById('countdown');
+            indicator.style.display = 'block';
+
+            var timeLeft = refreshInterval;
+            countdown.textContent = timeLeft;
+
+            // Update countdown every second
+            var countdownInterval = setInterval(function() {
+                timeLeft--;
+                countdown.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    // Refresh the page while preserving the autoRefresh parameter
+                    window.location.reload();
+                }
+            }, 1000);
+
+            // Set up the main refresh interval
+            setTimeout(function() {
+                window.location.reload();
+            }, refreshInterval * 1000);
+        }
+    })();
+</script>
+</body>
+</html>
