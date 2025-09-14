@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,6 +17,9 @@ import (
 	"sync"
 	"time"
 )
+
+// HTTPClient holds the shared HTTP client with connection pooling
+var httpClient *http.Client
 
 // Configuration loaded from environment variables
 type Config struct {
@@ -57,6 +63,52 @@ type NicknameGenerator struct {
 	adjectives []string
 	nouns      []string
 	colors     []string
+}
+
+// initHTTPClient initializes the shared HTTP client with optimized connection pooling
+func initHTTPClient() {
+	// Create a custom transport with optimized connection pooling settings
+	transport := &http.Transport{
+		// Connection pool settings
+		MaxIdleConns:        100, // Maximum number of idle connections across all hosts
+		MaxIdleConnsPerHost: 100, // Maximum number of idle connections per host
+		MaxConnsPerHost:     100, // Maximum number of connections per host (total, not just idle)
+
+		// Keep-alive settings
+		IdleConnTimeout:   90 * time.Second, // How long idle connections stay open
+		DisableKeepAlives: false,            // Enable keep-alives
+
+		// Connection timeouts
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second, // Connection timeout
+			KeepAlive: 30 * time.Second, // Keep-alive probe interval
+		}).DialContext,
+
+		// Response timeouts
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+
+		// TLS settings
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: false,
+		},
+
+		// Compression
+		DisableCompression: false,
+	}
+
+	httpClient = &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second, // Overall request timeout
+	}
+
+	slog.Info("HTTP client initialized with connection pooling",
+		"max_idle_conns", transport.MaxIdleConns,
+		"max_idle_conns_per_host", transport.MaxIdleConnsPerHost,
+		"max_conns_per_host", transport.MaxConnsPerHost,
+		"idle_conn_timeout", transport.IdleConnTimeout.String(),
+		"keep_alives_enabled", !transport.DisableKeepAlives)
 }
 
 // NewNicknameGenerator creates a new nickname generator with predefined word lists
@@ -149,12 +201,38 @@ func (ng *NicknameGenerator) GenerateUniqueNickname(usedNicknames map[string]boo
 	return finalNickname
 }
 
+// makeHTTPRequest is a helper function that uses the shared HTTP client with context
+func makeHTTPRequest(ctx context.Context, method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set default content type for POST requests
+	if method == "POST" && body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Add custom headers
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	// Set Connection header to keep-alive (though this is default)
+	req.Header.Set("Connection", "keep-alive")
+
+	return httpClient.Do(req)
+}
+
 func main() {
 	// Initialize slog with JSON handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
+
+	// Initialize the HTTP client with connection pooling
+	initHTTPClient()
 
 	config := loadConfig()
 	gameConfig := loadGameConfig(config.ConfigFile)
@@ -331,7 +409,12 @@ func registerUser(baseURL, nickname string) (string, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/users/sign-up", baseURL)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(reqBody))
+
+	// Use context with timeout for the request
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	resp, err := makeHTTPRequest(ctx, "POST", url, bytes.NewBuffer(reqBody), nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to make signup request: %w", err)
 	}
@@ -411,7 +494,12 @@ func sendAction(baseURL, userID, action string) error {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/users/actions", baseURL)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(reqBody))
+
+	// Use context with timeout for the request
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, err := makeHTTPRequest(ctx, "POST", url, bytes.NewBuffer(reqBody), nil)
 	if err != nil {
 		return fmt.Errorf("failed to make action request: %w", err)
 	}

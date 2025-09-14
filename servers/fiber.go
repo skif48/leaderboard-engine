@@ -4,10 +4,13 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/gofiber/fiber/v3"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
+	"github.com/skif48/leaderboard-engine/game_config"
 	"github.com/skif48/leaderboard-engine/repositories"
+	"github.com/skif48/leaderboard-engine/servers/middleware"
 	"github.com/skif48/leaderboard-engine/services"
 	"html/template"
 	"log/slog"
@@ -36,7 +39,7 @@ type HttpHandler struct {
 	ls              *services.LeaderboardService
 }
 
-func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, gas *services.GameActionsService, ls *services.LeaderboardService) {
+func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, gas *services.GameActionsService, ls *services.LeaderboardService, gc *game_config.GameConfig) {
 	leaderboardsTemplate, err := template.New("leaderboards.html").Funcs(template.FuncMap{
 		"add": func(a, b int) int {
 			return a + b
@@ -48,13 +51,19 @@ func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileReposi
 
 	h := &HttpHandler{
 		leaderboardsTemplate: leaderboardsTemplate,
-		leaderBoardsAmount:   ac.MaxLeaderboards,
+		leaderBoardsAmount:   gc.MaxLeaderboards,
 		repo:                 repo,
 		leaderboardRepo:      leaderboardRepo,
 		gas:                  gas,
 		ls:                   ls,
 	}
 	app := fiber.New()
+	app.Use(middleware.MetricsMiddleware())
+
+	app.Get("/metrics", func(ctx fiber.Ctx) error {
+		metrics.WritePrometheus(ctx.Response().BodyWriter(), true)
+		return nil
+	})
 
 	app.Get("/leaderboards", h.GetLeaderboardsHTML)
 

@@ -33,8 +33,8 @@ func (l *LeaderboardRedisRepo) updateActiveLeaderboards(leaderboard int) error {
 	return l.c.Do(context.Background(), l.c.B().Sadd().Key("leaderboards").Member(strconv.Itoa(leaderboard)).Build()).Error()
 }
 
-func (L *LeaderboardRedisRepo) GetAllLeaderboardsIds() ([]int, error) {
-	leaderBoards64, err := L.c.Do(context.Background(), L.c.B().Smembers().Key("leaderboards").Build()).AsIntSlice()
+func (l *LeaderboardRedisRepo) GetAllLeaderboardsIds() ([]int, error) {
+	leaderBoards64, err := l.c.Do(context.Background(), l.c.B().Smembers().Key("leaderboards").Build()).AsIntSlice()
 	if err != nil {
 		return nil, err
 	}

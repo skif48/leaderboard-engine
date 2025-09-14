@@ -6,6 +6,7 @@ import (
 )
 
 type GameConfig struct {
+	MaxLeaderboards     int            `json:"max_leaderboards"`
 	ActionsScoreMap     map[string]int `json:"actions_score_map"`
 	XpToLevelThresholds []int          `json:"xp_to_level_thresholds"`
 }

@@ -3,11 +3,13 @@ package servers
 import (
 	"context"
 	"encoding/json"
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/segmentio/kafka-go"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/services"
 	"log/slog"
+	"time"
 )
 
 type chMsg struct {
@@ -39,7 +41,7 @@ func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService
 	}
 
 	for i := 0; i < len(kc.ch); i++ {
-		kc.ch[i] = make(chan *chMsg)
+		kc.ch[i] = make(chan *chMsg, ac.KafkaLeaderboardTopicConsumerBufferSize)
 	}
 
 	kc.runWorkers()
@@ -51,6 +53,7 @@ func (kc *KafkaConsumer) runWorkers() {
 		go func(i int) {
 			ch := kc.ch[i]
 			for m := range ch {
+				start := time.Now()
 				if err := kc.gas.HandleAction(m.ga); err != nil {
 					slog.With(err).Error("Failed to handle action")
 					continue
@@ -59,6 +62,8 @@ func (kc *KafkaConsumer) runWorkers() {
 					slog.With(err).Error("Failed to commit message")
 					continue
 				}
+				metrics.GetOrCreateCounter(`kafka_processed_messages{topic="leaderboard"}`).Inc()
+				metrics.GetOrCreateHistogram(`kafka_processing_time_milliseconds{topic="leaderboard"}`).Update(float64(time.Since(start).Milliseconds()))
 			}
 		}(i)
 	}
