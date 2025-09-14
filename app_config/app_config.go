@@ -25,8 +25,6 @@ type AppConfig struct {
 	ScyllaUrl string `env:"SCYLLA_URL, default=127.0.0.1:9042"`
 
 	RedisUrl string `env:"REDIS_URL, default=127.0.0.1:6379"`
-
-	MaxLeaderboards int `env:"MAX_LEADERBOARDS, default=5"`
 }
 
 func NewAppConfig() *AppConfig {

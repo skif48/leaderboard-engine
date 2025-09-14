@@ -1,4 +1,5 @@
 {
+  "max_leaderboards": 10,
   "actions_score_map": {
     "spawn": 1,
     "some": 2,
