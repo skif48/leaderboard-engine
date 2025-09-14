@@ -4,10 +4,12 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/gofiber/fiber/v3"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/repositories"
+	"github.com/skif48/leaderboard-engine/servers/middleware"
 	"github.com/skif48/leaderboard-engine/services"
 	"html/template"
 	"log/slog"
@@ -55,6 +57,12 @@ func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileReposi
 		ls:                   ls,
 	}
 	app := fiber.New()
+	app.Use(middleware.MetricsMiddleware())
+
+	app.Get("/metrics", func(ctx fiber.Ctx) error {
+		metrics.WritePrometheus(ctx.Response().BodyWriter(), true)
+		return nil
+	})
 
 	app.Get("/leaderboards", h.GetLeaderboardsHTML)
 
