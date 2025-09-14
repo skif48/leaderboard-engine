@@ -41,7 +41,7 @@ func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService
 	}
 
 	for i := 0; i < len(kc.ch); i++ {
-		kc.ch[i] = make(chan *chMsg)
+		kc.ch[i] = make(chan *chMsg, ac.KafkaLeaderboardTopicConsumerBufferSize)
 	}
 
 	kc.runWorkers()
@@ -63,7 +63,7 @@ func (kc *KafkaConsumer) runWorkers() {
 					continue
 				}
 				metrics.GetOrCreateCounter(`kafka_processed_messages{topic="leaderboard"}`).Inc()
-				metrics.GetOrCreateHistogram(`kafka_processing_time_seconds{topic="leaderboard"}`).Update(time.Since(start).Seconds())
+				metrics.GetOrCreateHistogram(`kafka_processing_time_milliseconds{topic="leaderboard"}`).Update(float64(time.Since(start).Milliseconds()))
 			}
 		}(i)
 	}
