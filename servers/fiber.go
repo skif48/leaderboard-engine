@@ -9,6 +9,7 @@ import (
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/game_config"
+	"github.com/skif48/leaderboard-engine/graceful_shutdown"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/servers/middleware"
 	"github.com/skif48/leaderboard-engine/services"
@@ -72,6 +73,12 @@ func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileReposi
 	app.Get("/api/v1/users/:userId/profile", h.GetUserProfile)
 
 	app.Post("/backoffice-api/purge", h.Purge)
+
+	graceful_shutdown.AddInputShutdownFunc(func() {
+		if err := app.Shutdown(); err != nil {
+			slog.With("error", err).Error("Failed to shutdown fiber server")
+		}
+	})
 
 	go func() {
 		if err := app.Listen(fmt.Sprintf(":%d", ac.FiberPort)); err != nil {

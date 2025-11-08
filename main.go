@@ -4,15 +4,19 @@ import (
 	"context"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/game_config"
+	"github.com/skif48/leaderboard-engine/graceful_shutdown"
 	"github.com/skif48/leaderboard-engine/inits"
 	"github.com/skif48/leaderboard-engine/logger"
 	"github.com/skif48/leaderboard-engine/repositories"
 	"github.com/skif48/leaderboard-engine/servers"
 	"github.com/skif48/leaderboard-engine/services"
 	"go.uber.org/fx"
+	"log/slog"
 )
 
 func main() {
+	var loggerInstance *slog.Logger
+
 	app := fx.New(
 		fx.Provide(
 			app_config.NewAppConfig,
@@ -25,6 +29,7 @@ func main() {
 			services.NewLeaderboardService,
 			game_config.NewGameConfig,
 		),
+		fx.Populate(&loggerInstance),
 		fx.Invoke(servers.RunHttpServer, servers.RunKafkaConsumer),
 	)
 
@@ -35,5 +40,6 @@ func main() {
 	if err := app.Start(context.Background()); err != nil {
 		panic(err)
 	}
-	<-app.Done()
+
+	graceful_shutdown.WaitForSignals()
 }
