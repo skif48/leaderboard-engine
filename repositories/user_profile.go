@@ -7,6 +7,7 @@ import (
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
+	"github.com/skif48/leaderboard-engine/graceful_shutdown"
 	"time"
 )
 
@@ -44,6 +45,9 @@ func NewUserProfileRepository(ac *app_config.AppConfig) UserProfileRepository {
 	if err != nil {
 		panic(err)
 	}
+	graceful_shutdown.AddOutputShutdownFunc(func() {
+		session.Close()
+	})
 	return &UserProfileRepositoryScylla{scyllaClient: &session}
 }
 
