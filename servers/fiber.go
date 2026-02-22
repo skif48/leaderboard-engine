@@ -132,6 +132,10 @@ func (s *HttpHandler) SignUp(c fiber.Ctx) error {
 		slog.Error(err.Error())
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
+	if err := s.leaderboardRepo.AddUser(createDto.Leaderboard, userProfile.Id); err != nil {
+		slog.Error("Failed to add user to leaderboard", "error", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 	c.Status(fiber.StatusCreated)
 	return c.JSON(userProfile)
 }
@@ -142,7 +146,7 @@ func (s *HttpHandler) Action(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	userProfile, err := s.repo.GetUserProfile(req.UserId)
+	userProfile, err := s.repo.GetUserProfileEventual(req.UserId)
 	if err != nil {
 		slog.Error(err.Error())
 		return c.SendStatus(fiber.StatusInternalServerError)

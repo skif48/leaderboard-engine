@@ -69,9 +69,6 @@ func (l *LeaderboardRedisRepo) AddUser(leaderboard int, userId string) error {
 }
 
 func (l *LeaderboardRedisRepo) UpdateScore(leaderboard int, userId string, score int) (int, error) {
-	if err := l.updateActiveLeaderboards(leaderboard); err != nil {
-		return 0, err
-	}
 	updateScoreCmd := l.c.B().Zincrby().Key(l.key(leaderboard)).Increment(float64(score)).Member(userId).Build()
 	finalScoreCmd := l.c.B().Zscore().Key(l.key(leaderboard)).Member(userId).Build()
 	res := l.c.DoMulti(

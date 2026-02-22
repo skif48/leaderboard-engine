@@ -418,7 +418,10 @@ func registerUser(baseURL, nickname string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to make signup request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
@@ -503,7 +506,10 @@ func sendAction(baseURL, userID, action string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make action request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
