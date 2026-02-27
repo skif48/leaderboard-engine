@@ -25,12 +25,12 @@ func (u *userXpRepositoryRedis) key(userId string) string {
 }
 
 func (u *userXpRepositoryRedis) IncrementXp(userId string, score int) (int, error) {
-	xp, err := u.c.Do(context.Background(), u.c.B().Incrby().Key(userId).Increment(int64(score)).Build()).ToInt64()
+	xp, err := u.c.Do(context.Background(), u.c.B().Incrby().Key(u.key(userId)).Increment(int64(score)).Build()).ToInt64()
 	return int(xp), err
 }
 
 func (u *userXpRepositoryRedis) GetXp(userId string) (int, error) {
-	xp, err := u.c.Do(context.Background(), u.c.B().Get().Key(userId).Build()).ToInt64()
+	xp, err := u.c.Do(context.Background(), u.c.B().Get().Key(u.key(userId)).Build()).ToInt64()
 	return int(xp), err
 }
 

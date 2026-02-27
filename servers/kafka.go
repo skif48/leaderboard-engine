@@ -16,7 +16,6 @@ import (
 
 type chMsg struct {
 	ga *entities.GameAction
-	km kafka.Message
 }
 
 type KafkaConsumer struct {
@@ -29,12 +28,13 @@ type KafkaConsumer struct {
 
 func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService) {
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  ac.KafkaBrokers,
-		GroupID:  ac.KafkaConsumerGroupId,
-		Topic:    ac.KafkaTopic,
-		MinBytes: ac.KafkaLeaderboardTopicConsumerMinBytes,
-		MaxBytes: ac.KafkaLeaderboardTopicConsumerMaxBytes,
-		MaxWait:  ac.KafkaLeaderboardTopicConsumerMaxWait,
+		Brokers:        ac.KafkaBrokers,
+		GroupID:        ac.KafkaConsumerGroupId,
+		Topic:          ac.KafkaTopic,
+		MinBytes:       ac.KafkaLeaderboardTopicConsumerMinBytes,
+		MaxBytes:       ac.KafkaLeaderboardTopicConsumerMaxBytes,
+		MaxWait:        ac.KafkaLeaderboardTopicConsumerMaxWait,
+		CommitInterval: 1 * time.Second,
 	})
 
 	kc := &KafkaConsumer{
@@ -70,18 +70,14 @@ func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService
 
 func (kc *KafkaConsumer) runWorkers() {
 	for i := 0; i < len(kc.ch); i++ {
+		kc.workersWg.Add(1)
 		go func(i int) {
 			defer kc.workersWg.Done()
-			kc.workersWg.Add(1)
 			ch := kc.ch[i]
 			for m := range ch {
 				start := time.Now()
 				if err := kc.gas.HandleAction(m.ga); err != nil {
-					slog.With(err).Error("Failed to handle action")
-					continue
-				}
-				if err := kc.r.CommitMessages(context.Background(), m.km); err != nil {
-					slog.With(err).Error("Failed to commit message")
+					slog.With("error", err).Error("Failed to handle action")
 					continue
 				}
 				metrics.GetOrCreateCounter(`kafka_processed_messages{topic="leaderboard"}`).Inc()
@@ -93,7 +89,7 @@ func (kc *KafkaConsumer) runWorkers() {
 
 func (kc *KafkaConsumer) listen(ctx context.Context) {
 	for {
-		m, err := kc.r.FetchMessage(ctx)
+		m, err := kc.r.ReadMessage(ctx)
 		if err != nil {
 			if err.Error() != "context canceled" {
 				slog.With("error", err).Error("error while fetching messages from kafka reader")
@@ -109,7 +105,6 @@ func (kc *KafkaConsumer) listen(ctx context.Context) {
 		channelId := leaderboardId % len(kc.ch)
 		kc.ch[channelId] <- &chMsg{
 			ga: gameAction,
-			km: m,
 		}
 	}
 }
