@@ -19,6 +19,7 @@ type UserProfileRepository interface {
 	GetUserProfileEventual(userId string) (*entities.UserProfile, error)
 	UpdateLevel(userId string, oldLevel int, newLevel int) (bool, error)
 	Purge() error
+	Ping() error
 }
 
 type UserProfileRepositoryScylla struct {
@@ -170,4 +171,8 @@ func (u *UserProfileRepositoryScylla) UpdateLevel(userId string, currentLevel in
 func (u *UserProfileRepositoryScylla) Purge() error {
 	defer trackScyllaLatency("purge")()
 	return u.scyllaClient.Query(`TRUNCATE user_profile`, nil).Exec()
+}
+
+func (u *UserProfileRepositoryScylla) Ping() error {
+	return u.scyllaClient.Query(`SELECT key FROM system.local`, nil).Exec()
 }

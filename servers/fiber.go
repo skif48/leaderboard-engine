@@ -1,11 +1,13 @@
 package servers
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/gofiber/fiber/v3"
+	"github.com/redis/rueidis"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/game_config"
@@ -36,11 +38,12 @@ type HttpHandler struct {
 
 	repo            repositories.UserProfileRepository
 	leaderboardRepo repositories.LeaderboardRepo
+	redisClient     rueidis.Client
 	gas             *services.GameActionsService
 	ls              *services.LeaderboardService
 }
 
-func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, gas *services.GameActionsService, ls *services.LeaderboardService, gc *game_config.GameConfig) {
+func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileRepository, leaderboardRepo repositories.LeaderboardRepo, redisClient rueidis.Client, gas *services.GameActionsService, ls *services.LeaderboardService, gc *game_config.GameConfig) {
 	leaderboardsTemplate, err := template.New("leaderboards.html").Funcs(template.FuncMap{
 		"add": func(a, b int) int {
 			return a + b
@@ -55,11 +58,15 @@ func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileReposi
 		leaderBoardsAmount:   gc.MaxLeaderboards,
 		repo:                 repo,
 		leaderboardRepo:      leaderboardRepo,
+		redisClient:          redisClient,
 		gas:                  gas,
 		ls:                   ls,
 	}
 	app := fiber.New()
 	app.Use(middleware.MetricsMiddleware())
+
+	app.Get("/health", h.Health)
+	app.Get("/ready", h.Ready)
 
 	app.Get("/metrics", func(ctx fiber.Ctx) error {
 		metrics.WritePrometheus(ctx.Response().BodyWriter(), true)
@@ -170,4 +177,22 @@ func (s *HttpHandler) Purge(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (s *HttpHandler) Health(c fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func (s *HttpHandler) Ready(c fiber.Ctx) error {
+	if err := s.redisClient.Do(context.Background(), s.redisClient.B().Ping().Build()).Error(); err != nil {
+		slog.Error("Readiness check failed: Redis", "error", err)
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+
+	if err := s.repo.Ping(); err != nil {
+		slog.Error("Readiness check failed: ScyllaDB", "error", err)
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
 }
