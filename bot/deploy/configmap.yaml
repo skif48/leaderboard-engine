@@ -1,0 +1,177 @@
+# GENERATED from bot/scenarios/*.yaml by bot/deploy/gen-configmap.sh. Do not edit by hand.
+# Mounted at /scenarios in the bot pod; select a file with BOT_SCENARIO_FILE.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bot-scenarios
+  labels:
+    app.kubernetes.io/name: leaderboard-bot
+data:
+  diurnal.yaml: |
+    # Diurnal cycle: a smooth sine wave between a night-time trough and an evening
+    # peak, repeating forever. The wave starts at `min`, reaches `max` at half the
+    # period, and returns to `min` at the end of the period.
+    #
+    # For a demo, shrink both `period` and `duration` to e.g. 24m so one "day"
+    # passes in 24 minutes.
+    #
+    # Numbers are PER BOT INSTANCE. Approximate request rate per instance:
+    #   trough  20 sessions ~= 12 actions/s
+    #   peak   300 sessions ~= 180 actions/s
+    name: diurnal
+    loop: true
+    excess_sessions: drain
+    
+    personas:
+      casual:
+        actions: {spawn: 5, some: 3, heal: 3, save: 2, damage: 4, kill: 2, upgrade_armor: 1, upgrade_weapon: 1, double_kill: 0.5, triple_kill: 0.1}
+        think_time:     {mean: 3s, stddev: 1500ms, min: 300ms, max: 15s}
+        session_length: {mean: 3m, stddev: 1m, min: 30s, max: 8m}
+        leaderboard_view_prob: 0.02
+      grinder:
+        actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
+        think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+        session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
+        leaderboard_view_prob: 0.005
+    
+    phases:
+      - name: day
+        duration: 24h
+        shape: sine
+        period: 24h
+        active_users: {min: 20, max: 300}
+        new_user_ratio: 0.1
+        persona_mix: {casual: 7, grinder: 3}
+  growth.yaml: |
+    # User growth: a launch curve where most sessions belong to brand-new users,
+    # then the population matures and traffic is dominated by returning players.
+    # Watch bot_users_registered_total climb while new_user_ratio is high, and the
+    # Scylla/Redis footprint on the server grow with it.
+    #
+    # Numbers are PER BOT INSTANCE. Approximate request rate per instance:
+    #   mature: 600 sessions ~= 350 actions/s
+    # The last phase holds forever; stop with SIGTERM.
+    name: growth
+    loop: false
+    excess_sessions: drain
+    
+    personas:
+      casual:
+        actions: {spawn: 5, some: 3, heal: 3, save: 2, damage: 4, kill: 2, upgrade_armor: 1, upgrade_weapon: 1, double_kill: 0.5, triple_kill: 0.1}
+        think_time:     {mean: 3s, stddev: 1500ms, min: 300ms, max: 15s}
+        session_length: {mean: 3m, stddev: 1m, min: 30s, max: 8m}
+        leaderboard_view_prob: 0.02
+      grinder:
+        actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
+        think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+        session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
+        leaderboard_view_prob: 0.005
+    
+    phases:
+      - name: launch
+        duration: 2m
+        active_users: {from: 0, to: 20}
+        new_user_ratio: 1.0
+        persona_mix: {casual: 1}
+      - name: early
+        duration: 10m
+        active_users: {to: 150}
+        new_user_ratio: 0.8
+        persona_mix: {casual: 8, grinder: 2}
+      - name: growth
+        duration: 20m
+        active_users: {to: 600}
+        new_user_ratio: 0.5
+        persona_mix: {casual: 7, grinder: 3}
+      - name: mature
+        duration: 0
+        active_users: 600
+        new_user_ratio: 0.05
+        persona_mix: {casual: 6, grinder: 4}
+  spike.yaml: |
+    # Traffic spike: quiet baseline, a sharp 10x ramp dominated by new users, a
+    # short peak, an abrupt crash (sessions are cancelled, not drained), recovery.
+    #
+    # Numbers are PER BOT INSTANCE. Approximate request rate per instance:
+    #   baseline  50 sessions ~= 30 actions/s
+    #   peak     500 sessions ~= 350 actions/s (grinder-heavy mix)
+    # Ends after ~9 minutes and exits 0 unless BOT_LOOP_SCENARIO=true.
+    name: spike
+    loop: false
+    excess_sessions: drain
+    
+    personas:
+      casual:
+        actions: {spawn: 5, some: 3, heal: 3, save: 2, damage: 4, kill: 2, upgrade_armor: 1, upgrade_weapon: 1, double_kill: 0.5, triple_kill: 0.1}
+        think_time:     {mean: 3s, stddev: 1500ms, min: 300ms, max: 15s}
+        session_length: {mean: 3m, stddev: 1m, min: 30s, max: 8m}
+        leaderboard_view_prob: 0.02
+      grinder:
+        actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
+        think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+        session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
+        leaderboard_view_prob: 0.005
+      spectator:
+        actions: {some: 1, save: 1}
+        think_time:     {mean: 8s, stddev: 3s, min: 2s, max: 20s}
+        session_length: {mean: 2m, stddev: 30s, min: 30s, max: 4m}
+        leaderboard_view_prob: 0.5
+    
+    phases:
+      - name: baseline
+        duration: 3m
+        active_users: 50
+        new_user_ratio: 0.1
+        persona_mix: {casual: 6, grinder: 2, spectator: 2}
+      - name: ramp-up
+        duration: 30s
+        active_users: {to: 500}      # `from` is inherited from the previous phase (50)
+        new_user_ratio: 0.7
+        persona_mix: {casual: 5, grinder: 4, spectator: 1}
+      - name: peak
+        duration: 2m
+        active_users: 500
+        new_user_ratio: 0.3
+        persona_mix: {casual: 5, grinder: 4, spectator: 1}
+      - name: crash
+        duration: 15s
+        active_users: {to: 50}
+        excess_sessions: cancel      # shed the newest sessions instead of letting them finish
+        new_user_ratio: 0
+        persona_mix: {casual: 1}
+      - name: recovery
+        duration: 3m
+        active_users: 50
+        new_user_ratio: 0.1
+        persona_mix: {casual: 6, grinder: 2, spectator: 2}
+  steady.yaml: |
+    # Steady background load: a constant population with a trickle of new sign-ups.
+    #
+    # Numbers are PER BOT INSTANCE. Approximate request rate per instance:
+    #   sum over active sessions of 1 / mean think_time (+ leaderboard views)
+    #   100 sessions x (0.7/3s + 0.3/0.8s) ~= 60 actions/s
+    #
+    # Personas are shared by the bundled scenarios; copy this file to define your own.
+    name: steady
+    loop: false
+    excess_sessions: drain
+    
+    personas:
+      casual:
+        actions: {spawn: 5, some: 3, heal: 3, save: 2, damage: 4, kill: 2, upgrade_armor: 1, upgrade_weapon: 1, double_kill: 0.5, triple_kill: 0.1}
+        think_time:     {mean: 3s, stddev: 1500ms, min: 300ms, max: 15s}
+        session_length: {mean: 3m, stddev: 1m, min: 30s, max: 8m}
+        leaderboard_view_prob: 0.02
+      grinder:
+        actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
+        think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+        session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
+        leaderboard_view_prob: 0.005
+    
+    phases:
+      # duration 0 on the last phase means "hold forever" (until SIGTERM).
+      - name: steady
+        duration: 0
+        active_users: 100
+        new_user_ratio: 0.05
+        persona_mix: {casual: 7, grinder: 3}

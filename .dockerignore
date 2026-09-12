@@ -1,0 +1,15 @@
+.git
+.claude
+.idea
+.vscode
+.github
+grafana
+docs/
+docker-compose*.yml
+prometheus.yml
+*.http
+*.md
+bot/deploy
+terraform/
+helm/
+k8s/

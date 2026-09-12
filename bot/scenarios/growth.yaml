@@ -1,0 +1,45 @@
+# User growth: a launch curve where most sessions belong to brand-new users,
+# then the population matures and traffic is dominated by returning players.
+# Watch bot_users_registered_total climb while new_user_ratio is high, and the
+# Scylla/Redis footprint on the server grow with it.
+#
+# Numbers are PER BOT INSTANCE. Approximate request rate per instance:
+#   mature: 600 sessions ~= 350 actions/s
+# The last phase holds forever; stop with SIGTERM.
+name: growth
+loop: false
+excess_sessions: drain
+
+personas:
+  casual:
+    actions: {spawn: 5, some: 3, heal: 3, save: 2, damage: 4, kill: 2, upgrade_armor: 1, upgrade_weapon: 1, double_kill: 0.5, triple_kill: 0.1}
+    think_time:     {mean: 3s, stddev: 1500ms, min: 300ms, max: 15s}
+    session_length: {mean: 3m, stddev: 1m, min: 30s, max: 8m}
+    leaderboard_view_prob: 0.02
+  grinder:
+    actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
+    think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+    session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
+    leaderboard_view_prob: 0.005
+
+phases:
+  - name: launch
+    duration: 2m
+    active_users: {from: 0, to: 20}
+    new_user_ratio: 1.0
+    persona_mix: {casual: 1}
+  - name: early
+    duration: 10m
+    active_users: {to: 150}
+    new_user_ratio: 0.8
+    persona_mix: {casual: 8, grinder: 2}
+  - name: growth
+    duration: 20m
+    active_users: {to: 600}
+    new_user_ratio: 0.5
+    persona_mix: {casual: 7, grinder: 3}
+  - name: mature
+    duration: 0
+    active_users: 600
+    new_user_ratio: 0.05
+    persona_mix: {casual: 6, grinder: 4}

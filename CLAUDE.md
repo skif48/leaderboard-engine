@@ -15,8 +15,14 @@ go run main.go
 # Build
 go build -o leaderboard-engine .
 
-# Run the load testing bot
-cd bot && go run main.go
+# Run the load-generation bot against a local server (scenarios live in bot/scenarios/)
+BOT_SCENARIO_FILE=bot/scenarios/spike.yaml go run ./bot
+
+# Bot unit tests
+go test ./bot/...
+
+# Build the bot image (context is the repo root)
+docker build -f bot/Dockerfile -t leaderboard-bot:dev .
 
 # Start infrastructure (Kafka, Redis cluster, ScyllaDB)
 docker-compose up -d
@@ -25,7 +31,7 @@ docker-compose up -d
 docker-compose -f docker-compose.metrics.yml up -d
 ```
 
-No automated tests exist yet. Manual API testing is done via `users.http` (IDE REST client format).
+The server has no automated tests; manual API testing is done via `users.http` (IDE REST client format). The bot has unit tests under `bot/internal/`.
 
 ## Architecture
 
@@ -49,6 +55,18 @@ HTTP Request → GameActionsService → Kafka → Consumer Workers → Redis/Scy
 
 **Key interfaces** are defined in `repositories/` and `services/` files — all repos and services use interface-based contracts.
 
+## Load-generation bot (`bot/`)
+
+Separate `main` package in the root module; imports `entities/` and `game_config/` directly. Traffic shape is defined in YAML scenarios (`bot/scenarios/*.yaml`: personas with weighted actions and think/session-time distributions, plus ordered phases with active-session targets, new-user ratio and persona mix). Process config is `BOT_*` env vars (`bot/internal/config`).
+
+- `bot/internal/scenario` — schema, validation (actions checked against `game_config`), phase shapes (step/linear/sine)
+- `bot/internal/engine` — 1s scheduler keeps active sessions at the phase target; goroutine per session; user pool with bounded sign-ups
+- `bot/internal/client` — HTTP client with rate limiter, jittered backoff, and retry on 404 (the server reads profiles at consistency ONE right after a QUORUM write)
+- `bot/internal/metrics` — `bot_*` Prometheus metrics on `BOT_METRICS_PORT` (default 9100) via the same VictoriaMetrics library as the server
+- `bot/deploy/` — plain k8s manifests; scenario numbers are per pod, fleet size = replicas. See `bot/deploy/README.md`.
+
+Per-action logs are Debug only. Never add per-request Info logging to the bot.
+
 ## Configuration
 
 All config is via environment variables (see `app_config/app_config.go`). Key defaults:
@@ -64,4 +82,4 @@ All config is via environment variables (see `app_config/app_config.go`). Key de
 - `POST /api/v1/users/actions` — Submit game action
 - `GET /leaderboards` — HTML leaderboard view
 - `GET /metrics` — Prometheus metrics
-- `POST /backoffice-api/purge` — Clear all data
+- `POST /backoffice-api/purge` — Clear all data (note: truncates ScyllaDB only; Redis leaderboards/XP are not cleared)

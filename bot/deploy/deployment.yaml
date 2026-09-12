@@ -1,0 +1,83 @@
+# Bot fleet. Scenario numbers are PER POD: total load ~= replicas x per-pod
+# targets. Scale the fleet with `kubectl scale deployment/leaderboard-bot --replicas=N`.
+#
+# A Deployment restarts a container that exits, so a scenario that ends
+# (spike, or anything without a trailing duration: 0 phase) is forced to loop
+# here via BOT_LOOP_SCENARIO. For a one-shot run use a Job with
+# restartPolicy: Never and BOT_LOOP_SCENARIO=false instead.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaderboard-bot
+  labels:
+    app.kubernetes.io/name: leaderboard-bot
+    app.kubernetes.io/component: load-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: leaderboard-bot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: leaderboard-bot
+        app.kubernetes.io/component: load-generator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: /metrics
+    spec:
+      # Must exceed BOT_SHUTDOWN_TIMEOUT so SIGTERM drains sessions before SIGKILL.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: bot
+          image: REGISTRY/leaderboard-bot:latest # replace with your ECR image
+          imagePullPolicy: IfNotPresent
+          env:
+            # Match the Service that fronts leaderboard-engine in this namespace.
+            - name: BOT_BASE_URL
+              value: http://leaderboard-engine:3000
+            - name: BOT_SCENARIO_FILE
+              value: /scenarios/spike.yaml
+            - name: BOT_LOOP_SCENARIO
+              value: "true"
+            - name: BOT_MAX_RPS
+              value: "0" # 0 = unlimited; set a number to cap this pod's request rate
+            - name: BOT_MAX_CONNS
+              value: "200"
+            - name: BOT_MAX_USERS
+              value: "0" # 0 = unlimited; cap to bound Scylla/Redis growth on long runs
+            - name: BOT_METRICS_PORT
+              value: "9100"
+            - name: BOT_SHUTDOWN_TIMEOUT
+              value: 10s
+            - name: LOG_LEVEL
+              value: info
+            - name: BOT_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: metrics
+              containerPort: 9100
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          volumeMounts:
+            - name: scenarios
+              mountPath: /scenarios
+              readOnly: true
+      volumes:
+        - name: scenarios
+          configMap:
+            name: bot-scenarios
