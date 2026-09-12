@@ -1,0 +1,51 @@
+# Scrape config for the bot fleet. Pick ONE of the two options below.
+#
+# Option A: VictoriaMetrics operator (VMServiceScrape CRD). Apply as-is if the
+# operator runs in the cluster and your VMAgent selects VMServiceScrape objects
+# in this namespace.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: leaderboard-bot
+  labels:
+    app.kubernetes.io/name: leaderboard-bot
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: leaderboard-bot
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 10s
+---
+# Option B: plain vmagent / VictoriaMetrics single-node with -promscrape.config.
+# Drop this job into that config (do NOT kubectl apply it). It discovers every
+# endpoint annotated with prometheus.io/scrape=true, so the same job also picks
+# up leaderboard-engine once its Service carries the annotations. Pod labels
+# (pod, namespace) are attached by relabeling, which is why the bot does not
+# put an instance label on its own metrics.
+#
+# scrape_configs:
+#   - job_name: kubernetes-endpoints
+#     scrape_interval: 10s
+#     kubernetes_sd_configs:
+#       - role: endpoints
+#     relabel_configs:
+#       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+#         action: keep
+#         regex: "true"
+#       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+#         action: replace
+#         target_label: __metrics_path__
+#         regex: (.+)
+#       - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+#         action: replace
+#         regex: ([^:]+)(?::\d+)?;(\d+)
+#         replacement: $1:$2
+#         target_label: __address__
+#       - source_labels: [__meta_kubernetes_namespace]
+#         target_label: namespace
+#       - source_labels: [__meta_kubernetes_pod_name]
+#         target_label: pod
+#       - source_labels: [__meta_kubernetes_service_name]
+#         target_label: service

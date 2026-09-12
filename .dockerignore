@@ -1,0 +1,10 @@
+.git
+.claude
+.idea
+.vscode
+grafana
+docker-compose*.yml
+prometheus.yml
+users.http
+*.md
+bot/deploy
