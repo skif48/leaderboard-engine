@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/redis/rueidis"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
@@ -63,6 +64,9 @@ func RunHttpServer(ac *app_config.AppConfig, repo repositories.UserProfileReposi
 		ls:                   ls,
 	}
 	app := fiber.New()
+	// Profiler at /debug/pprof; registered first so its requests are not
+	// counted by the metrics middleware (which also skips the prefix).
+	app.Use(pprof.New())
 	app.Use(middleware.MetricsMiddleware())
 
 	app.Get("/health", h.Health)
@@ -173,7 +177,11 @@ func (s *HttpHandler) Action(c fiber.Ctx) error {
 
 func (s *HttpHandler) Purge(c fiber.Ctx) error {
 	if err := s.repo.Purge(); err != nil {
-		slog.Error(err.Error())
+		slog.Error("Purge failed: ScyllaDB", "error", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	if err := s.leaderboardRepo.Purge(); err != nil {
+		slog.Error("Purge failed: Redis", "error", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	return c.SendStatus(fiber.StatusNoContent)

@@ -1,0 +1,17 @@
+# VictoriaMetrics operator scrape target. Apply only if the operator runs in
+# the cluster; the annotation-based kubernetes-endpoints job documented in
+# bot/deploy/vmscrape.yaml already picks this Service up with plain vmagent.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: redis-exporter
+  labels:
+    app.kubernetes.io/name: redis-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 10s

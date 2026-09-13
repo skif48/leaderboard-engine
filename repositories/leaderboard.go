@@ -6,6 +6,7 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/skif48/leaderboard-engine/entities"
 	"strconv"
+	"strings"
 )
 
 type LeaderboardRepo interface {
@@ -118,9 +119,18 @@ func (l *LeaderboardRedisRepo) GetLeaderboard(leaderboard int) ([]*entities.Lead
 	return scores, nil
 }
 
+// Purge flushes every master in the cluster. Replicas reject FLUSHALL with
+// READONLY and are skipped; they pick up the flush through replication.
 func (l *LeaderboardRedisRepo) Purge() error {
-	for _, node := range l.c.Nodes() {
-		node.Do(context.Background(), l.c.B().Flushall().Build())
+	for addr, node := range l.c.Nodes() {
+		err := node.Do(context.Background(), l.c.B().Flushall().Build()).Error()
+		if err == nil {
+			continue
+		}
+		if rerr, ok := rueidis.IsRedisErr(err); ok && strings.HasPrefix(rerr.Error(), "READONLY") {
+			continue
+		}
+		return fmt.Errorf("flushall on %s: %w", addr, err)
 	}
 	return nil
 }

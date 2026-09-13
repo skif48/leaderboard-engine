@@ -2,7 +2,7 @@
 #
 # Numbers are PER BOT INSTANCE. Approximate request rate per instance:
 #   sum over active sessions of 1 / mean think_time (+ leaderboard views)
-#   100 sessions x (0.7/3s + 0.3/0.8s) ~= 60 actions/s
+#   400 sessions x (0.5/3s + 0.5/0.6s) ~= 400 actions/s
 #
 # Personas are shared by the bundled scenarios; copy this file to define your own.
 name: steady
@@ -17,7 +17,7 @@ personas:
     leaderboard_view_prob: 0.02
   grinder:
     actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
-    think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+    think_time:     {mean: 600ms, stddev: 200ms, min: 100ms, max: 2s}
     session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
     leaderboard_view_prob: 0.005
 
@@ -25,6 +25,6 @@ phases:
   # duration 0 on the last phase means "hold forever" (until SIGTERM).
   - name: steady
     duration: 0
-    active_users: 100
+    active_users: 400
     new_user_ratio: 0.05
-    persona_mix: {casual: 7, grinder: 3}
+    persona_mix: {casual: 5, grinder: 5}

@@ -7,6 +7,7 @@ require (
 	github.com/gocql/gocql v1.7.0
 	github.com/gofiber/fiber/v3 v3.0.0-beta.4
 	github.com/redis/rueidis v1.0.61
+	github.com/redis/rueidis/rueidishook v1.0.61
 	github.com/scylladb/gocqlx v1.5.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/segmentio/kafka-go v0.4.48

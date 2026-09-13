@@ -1,14 +1,15 @@
 package repositories
 
 import (
+	"context"
 	"fmt"
-	"github.com/VictoriaMetrics/metrics"
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/qb"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/graceful_shutdown"
+	"github.com/skif48/leaderboard-engine/telemetry"
 	"time"
 )
 
@@ -26,11 +27,9 @@ type UserProfileRepositoryScylla struct {
 	scyllaClient *gocqlx.Session
 }
 
-func trackScyllaLatency(query string) func() {
-	start := time.Now()
-	return func() {
-		metrics.GetOrCreateHistogram(fmt.Sprintf(`scylla_query_latency_milliseconds{query=%q}`, query)).Update(float64(time.Since(start).Milliseconds()))
-	}
+// opCtx tags a query with the op label used by telemetry.ScyllaObserver.
+func opCtx(op string) context.Context {
+	return telemetry.WithScyllaOp(context.Background(), op)
 }
 
 func NewUserProfileRepository(ac *app_config.AppConfig) UserProfileRepository {
@@ -65,6 +64,8 @@ func NewUserProfileRepository(ac *app_config.AppConfig) UserProfileRepository {
 	cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(
 		gocql.RoundRobinHostPolicy(),
 	)
+	cluster.QueryObserver = telemetry.ScyllaObserver{}
+	cluster.ConnectObserver = telemetry.ScyllaObserver{}
 	session, err := gocqlx.WrapSession(cluster.CreateSession())
 	if err != nil {
 		panic(err)
@@ -76,12 +77,12 @@ func NewUserProfileRepository(ac *app_config.AppConfig) UserProfileRepository {
 }
 
 func (u *UserProfileRepositoryScylla) SignUp(r *entities.CreateUserProfileDto) (*entities.UserProfile, error) {
-	defer trackScyllaLatency("sign_up")()
 	id, _ := gocql.RandomUUID()
 	createdAt := time.Now()
 	q := u.scyllaClient.Query(
 		`INSERT INTO user_profile (id,nickname,level,leaderboard,created_at) VALUES (?,?,?,?,?)`,
 		[]string{":id", ":nickname", ":level", ":leaderboard", ":created_at"}).
+		WithContext(opCtx("sign_up")).
 		BindMap(map[string]interface{}{
 			":id":          id,
 			":nickname":    r.Nickname,
@@ -102,7 +103,6 @@ func (u *UserProfileRepositoryScylla) SignUp(r *entities.CreateUserProfileDto) (
 }
 
 func (u *UserProfileRepositoryScylla) GetManyUserProfiles(userIds []string) ([]*entities.UserProfile, error) {
-	defer trackScyllaLatency("get_many_user_profiles")()
 	uuids := make([]gocql.UUID, len(userIds))
 	for i, userIdStr := range userIds {
 		uuid, err := gocql.ParseUUID(userIdStr)
@@ -113,7 +113,7 @@ func (u *UserProfileRepositoryScylla) GetManyUserProfiles(userIds []string) ([]*
 	}
 
 	stmt, names := qb.Select("user_profile").Where(qb.In("id")).ToCql()
-	q := u.scyllaClient.Query(stmt, names).BindMap(qb.M{"id": uuids})
+	q := u.scyllaClient.Query(stmt, names).WithContext(opCtx("get_many_user_profiles")).BindMap(qb.M{"id": uuids})
 
 	var userProfiles []*entities.UserProfile
 	if err := q.SelectRelease(&userProfiles); err != nil {
@@ -123,9 +123,8 @@ func (u *UserProfileRepositoryScylla) GetManyUserProfiles(userIds []string) ([]*
 }
 
 func (u *UserProfileRepositoryScylla) GetUserProfile(userId string) (*entities.UserProfile, error) {
-	defer trackScyllaLatency("get_user_profile")()
 	userProfile := &entities.UserProfile{}
-	q := u.scyllaClient.Query(`SELECT * FROM user_profile WHERE id = ?`, nil).Bind(userId)
+	q := u.scyllaClient.Query(`SELECT * FROM user_profile WHERE id = ?`, nil).WithContext(opCtx("get_user_profile")).Bind(userId)
 	if err := q.Get(userProfile); err != nil {
 		if err == gocql.ErrNotFound {
 			return nil, nil
@@ -137,9 +136,8 @@ func (u *UserProfileRepositoryScylla) GetUserProfile(userId string) (*entities.U
 }
 
 func (u *UserProfileRepositoryScylla) GetUserProfileEventual(userId string) (*entities.UserProfile, error) {
-	defer trackScyllaLatency("get_user_profile_eventual")()
 	userProfile := &entities.UserProfile{}
-	q := u.scyllaClient.Query(`SELECT * FROM user_profile WHERE id = ?`, nil).Bind(userId)
+	q := u.scyllaClient.Query(`SELECT * FROM user_profile WHERE id = ?`, nil).WithContext(opCtx("get_user_profile_eventual")).Bind(userId)
 	q.Consistency(gocql.One)
 	if err := q.Get(userProfile); err != nil {
 		if err == gocql.ErrNotFound {
@@ -152,7 +150,6 @@ func (u *UserProfileRepositoryScylla) GetUserProfileEventual(userId string) (*en
 }
 
 func (u *UserProfileRepositoryScylla) UpdateLevel(userId string, currentLevel int, newLevel int) (bool, error) {
-	defer trackScyllaLatency("update_level")()
 	applied := false
 	tempUserLevel := 0
 	updateQuery := u.scyllaClient.Query(`
@@ -160,6 +157,7 @@ func (u *UserProfileRepositoryScylla) UpdateLevel(userId string, currentLevel in
 			SET level = ?
 			WHERE id = ?
 			IF level = ?`, nil).
+		WithContext(opCtx("update_level")).
 		Bind(newLevel, userId, currentLevel)
 
 	if err := updateQuery.Scan(&applied, &tempUserLevel); err != nil {
@@ -169,8 +167,7 @@ func (u *UserProfileRepositoryScylla) UpdateLevel(userId string, currentLevel in
 }
 
 func (u *UserProfileRepositoryScylla) Purge() error {
-	defer trackScyllaLatency("purge")()
-	return u.scyllaClient.Query(`TRUNCATE user_profile`, nil).Exec()
+	return u.scyllaClient.Query(`TRUNCATE user_profile`, nil).WithContext(opCtx("purge")).Exec()
 }
 
 func (u *UserProfileRepositoryScylla) Ping() error {

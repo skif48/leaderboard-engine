@@ -35,3 +35,29 @@ Bundled scenarios in `bot/scenarios/`:
 Scenario numbers are per bot instance; on Kubernetes the fleet size is the
 Deployment's replica count. Manifests, environment variables and metric
 cheat-sheet: `bot/deploy/README.md`.
+
+## Kafka consumer lag
+
+`kafka-exporter` (`docker-compose.yml`) polls the broker and exposes
+consumer-group lag on `:9308`; VictoriaMetrics scrapes it and the provisioned
+"Kafka lag" Grafana dashboard (`localhost:3001`) plots lag per group, per
+partition, and produce vs consume rate. The same image runs against MSK from
+`deploy/kafka-exporter/`.
+
+```bash
+curl -s localhost:9308/metrics | grep kafka_consumergroup_lag
+```
+
+## Engine metrics and profiling
+
+The engine exports `engine_*` metrics on `/metrics`: per-route HTTP latency,
+the Kafka worker pipeline (message age, queue wait, handle time, queue depth
+per worker), kafka-go reader and writer stats (batch size vs batch wait),
+Scylla latency per operation and Redis latency per command. The "Engine
+overview" Grafana dashboard plots all of it next to server-side Scylla and
+Redis metrics from their exporters.
+
+```bash
+curl -s localhost:3000/metrics | grep '^engine_'
+go tool pprof -top http://localhost:3000/debug/pprof/profile?seconds=10   # CPU profile under load
+```

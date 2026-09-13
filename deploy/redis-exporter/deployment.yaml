@@ -1,0 +1,58 @@
+# redis_exporter against ElastiCache (cluster mode enabled). One replica; it is
+# a read-only INFO poller.
+#
+# Set REDIS_ADDR to the configuration endpoint:
+#   terraform -chdir=terraform output -raw elasticache_endpoint
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-exporter
+  labels:
+    app.kubernetes.io/name: redis-exporter
+    app.kubernetes.io/component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis-exporter
+        app.kubernetes.io/component: monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: redis-exporter
+          image: oliver006/redis_exporter:v1.91.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_ADDR
+              value: redis://REPLACE_WITH_ELASTICACHE_ENDPOINT:6379
+            - name: REDIS_EXPORTER_IS_CLUSTER
+              value: "true"
+          ports:
+            - name: metrics
+              containerPort: 9121
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi

@@ -1,0 +1,327 @@
+{
+  "title": "Kafka lag",
+  "uid": "kafka-lag",
+  "tags": [
+    "kafka",
+    "leaderboard-engine"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "DS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "VictoriaMetrics",
+          "value": "VictoriaMetrics"
+        },
+        "hide": 0
+      },
+      {
+        "name": "group",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS}"
+        },
+        "query": "label_values(kafka_consumergroup_lag_sum, consumergroup)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "topic",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS}"
+        },
+        "query": "label_values(kafka_consumergroup_lag_sum, topic)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total lag",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 10000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kafka_consumergroup_lag_sum{consumergroup=~\"$group\"})",
+          "legendFormat": "lag",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Group members",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kafka_consumergroup_members{consumergroup=~\"$group\"})",
+          "legendFormat": "members",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Produce vs consume rate (msg/s)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(kafka_topic_partition_current_offset{topic=~\"$topic\"}[1m]))",
+          "legendFormat": "produced",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(kafka_consumergroup_current_offset{consumergroup=~\"$group\",topic=~\"$topic\"}[1m]))",
+          "legendFormat": "consumed",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Lag per group and topic",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag_sum{consumergroup=~\"$group\",topic=~\"$topic\"})",
+          "legendFormat": "{{consumergroup}} / {{topic}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Lag per partition",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kafka_consumergroup_lag{consumergroup=~\"$group\",topic=~\"$topic\"}",
+          "legendFormat": "{{topic}} p{{partition}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    }
+  ]
+}

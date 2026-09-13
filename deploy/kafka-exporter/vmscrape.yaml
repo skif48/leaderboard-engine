@@ -1,0 +1,17 @@
+# VictoriaMetrics operator scrape target. Apply only if the operator runs in
+# the cluster. With plain vmagent, the annotation-based kubernetes-endpoints
+# job documented in bot/deploy/vmscrape.yaml already picks this Service up.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: kafka-exporter
+  labels:
+    app.kubernetes.io/name: kafka-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 10s

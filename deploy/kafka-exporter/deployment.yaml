@@ -1,0 +1,65 @@
+# kafka_exporter: consumer-group lag and topic offsets from the broker as
+# Prometheus metrics. One replica is enough; it is a read-only poller.
+#
+# Set KAFKA_BROKERS to the MSK plaintext bootstrap string:
+#   terraform -chdir=terraform output -raw msk_bootstrap_brokers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter
+  labels:
+    app.kubernetes.io/name: kafka-exporter
+    app.kubernetes.io/component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-exporter
+        app.kubernetes.io/component: monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9308"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: kafka-exporter
+          image: danielqsj/kafka-exporter:v1.10.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_BROKERS
+              value: REPLACE_WITH_MSK_BOOTSTRAP_BROKERS # b-1.xxx.kafka.<region>.amazonaws.com:9092,b-2...
+          args:
+            - --kafka.server=$(KAFKA_BROKERS)
+            - --kafka.version=3.9.0
+            - --topic.exclude=^__.*
+            # MSK IAM auth (only if msk.tf switches client_authentication to sasl.iam;
+            # also change the port above to 9098 and add --tls.enabled):
+            # - --sasl.enabled
+            # - --sasl.mechanism=awsiam
+            # - --sasl.aws-region=<region>
+          ports:
+            - name: metrics
+              containerPort: 9308
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi

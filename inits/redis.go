@@ -4,6 +4,7 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/graceful_shutdown"
+	"github.com/skif48/leaderboard-engine/telemetry"
 )
 
 func NewRedisClient(ac *app_config.AppConfig) rueidis.Client {
@@ -17,5 +18,5 @@ func NewRedisClient(ac *app_config.AppConfig) rueidis.Client {
 	graceful_shutdown.AddOutputShutdownFunc(func() {
 		client.Close()
 	})
-	return client
+	return telemetry.WrapRedis(client)
 }

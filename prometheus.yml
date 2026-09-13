@@ -14,3 +14,40 @@ scrape_configs:
       - targets: ['host.docker.internal:9100']
     metrics_path: '/metrics'
     scrape_interval: 10s
+
+  # kafka-exporter service from docker-compose.yml: consumer-group lag per
+  # partition (kafka_consumergroup_lag) and per topic (kafka_consumergroup_lag_sum).
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9308']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # ScyllaDB's built-in metrics endpoint (port 9180 published in docker-compose.yml).
+  - job_name: 'scylla'
+    static_configs:
+      - targets: ['host.docker.internal:9180']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # redis_exporter in multi-target mode: one scrape per cluster node. The
+  # relabel rules move the node address into ?target= and the instance label,
+  # then point the actual request at the exporter.
+  - job_name: 'redis'
+    metrics_path: /scrape
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - 'host.docker.internal:6379'
+          - 'host.docker.internal:6380'
+          - 'host.docker.internal:6381'
+          - 'host.docker.internal:6382'
+          - 'host.docker.internal:6383'
+          - 'host.docker.internal:6384'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 'host.docker.internal:9121'

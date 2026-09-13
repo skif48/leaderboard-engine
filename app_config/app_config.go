@@ -21,6 +21,7 @@ type AppConfig struct {
 	KafkaLeaderboardTopicConsumerMinBytes    int           `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_MIN_BYTES, default=1024"`
 	KafkaLeaderboardTopicConsumerMaxBytes    int           `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_MAX_BYTES, default=10485760"`
 	KafkaLeaderboardTopicConsumerMaxWait     time.Duration `env:"KAFKA_LEADERBOARD_TOPIC_CONSUMER_MAX_WAIT, default=100ms"`
+	KafkaProducerBatchTimeout                time.Duration `env:"KAFKA_PRODUCER_BATCH_TIMEOUT, default=10ms"`
 
 	ScyllaUrl      string `env:"SCYLLA_URL, default=127.0.0.1:9042"`
 	ScyllaNumConns int    `env:"SCYLLA_NUM_CONNS, default=10"`

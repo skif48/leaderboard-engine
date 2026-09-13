@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/VictoriaMetrics/metrics"
 	"github.com/segmentio/kafka-go"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/game_config"
+	"github.com/skif48/leaderboard-engine/graceful_shutdown"
 	"github.com/skif48/leaderboard-engine/repositories"
+	"github.com/skif48/leaderboard-engine/telemetry"
 	"log/slog"
 )
 
@@ -27,7 +28,11 @@ func NewGameActionsService(ac *app_config.AppConfig, gc *game_config.GameConfig,
 		Topic:                  "game-actions",
 		Balancer:               &kafka.Murmur2Balancer{Consistent: true},
 		AllowAutoTopicCreation: true,
+		BatchTimeout:           ac.KafkaProducerBatchTimeout,
 	}
+	statsCtx, stopStats := context.WithCancel(context.Background())
+	telemetry.PollKafkaWriter(statsCtx, kw)
+	graceful_shutdown.AddOutputShutdownFunc(stopStats)
 
 	return &GameActionsService{
 		kw:  kw,
@@ -54,7 +59,7 @@ func (gas *GameActionsService) HandleAction(action *entities.GameAction) error {
 	if !ok {
 		return fmt.Errorf("unknown action: %s", action.Action)
 	}
-	metrics.GetOrCreateCounter(fmt.Sprintf("game_actions_count{action=%q}", action.Action)).Inc()
+	telemetry.CountGameAction(action.Action)
 	userProfile, err := gas.upr.GetUserProfile(action.UserId)
 	if err != nil {
 		return err
@@ -81,6 +86,7 @@ func (gas *GameActionsService) HandleAction(action *entities.GameAction) error {
 		if err != nil {
 			return err
 		}
+		telemetry.CountLevelUp(updated)
 		if !updated {
 			slog.With("userId", action.UserId).Warn("User level update was ignored, race condition")
 		}

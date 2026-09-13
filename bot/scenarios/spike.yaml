@@ -1,10 +1,12 @@
-# Traffic spike: quiet baseline, a sharp 10x ramp dominated by new users, a
-# short peak, an abrupt crash (sessions are cancelled, not drained), recovery.
+# Traffic spike: quiet baseline, a sharp 15x ramp dominated by new users, a
+# sustained peak, an abrupt crash (sessions are cancelled, not drained), recovery.
 #
 # Numbers are PER BOT INSTANCE. Approximate request rate per instance:
-#   baseline  50 sessions ~= 30 actions/s
-#   peak     500 sessions ~= 350 actions/s (grinder-heavy mix)
-# Ends after ~9 minutes and exits 0 unless BOT_LOOP_SCENARIO=true.
+#   baseline  100 sessions ~= 70 actions/s
+#   peak     1500 sessions ~= 1400 actions/s (grinder-heavy mix)
+# The peak is meant to exceed what a single engine keeps up with, so expect
+# consumer lag to build on the Kafka lag dashboard and drain during recovery.
+# Ends after ~10 minutes and exits 0 unless BOT_LOOP_SCENARIO=true.
 name: spike
 loop: false
 excess_sessions: drain
@@ -17,7 +19,7 @@ personas:
     leaderboard_view_prob: 0.02
   grinder:
     actions: {damage: 6, kill: 5, double_kill: 2, triple_kill: 1, heal: 2, upgrade_weapon: 1, upgrade_armor: 1, spawn: 1}
-    think_time:     {mean: 800ms, stddev: 300ms, min: 100ms, max: 3s}
+    think_time:     {mean: 600ms, stddev: 200ms, min: 100ms, max: 2s}
     session_length: {mean: 10m, stddev: 3m, min: 2m, max: 20m}
     leaderboard_view_prob: 0.005
   spectator:
@@ -28,28 +30,28 @@ personas:
 
 phases:
   - name: baseline
-    duration: 3m
-    active_users: 50
+    duration: 2m
+    active_users: 100
     new_user_ratio: 0.1
     persona_mix: {casual: 6, grinder: 2, spectator: 2}
   - name: ramp-up
-    duration: 30s
-    active_users: {to: 500}      # `from` is inherited from the previous phase (50)
+    duration: 20s
+    active_users: {to: 1500}     # `from` is inherited from the previous phase (100)
     new_user_ratio: 0.7
-    persona_mix: {casual: 5, grinder: 4, spectator: 1}
+    persona_mix: {casual: 4, grinder: 5, spectator: 1}
   - name: peak
-    duration: 2m
-    active_users: 500
+    duration: 3m
+    active_users: 1500
     new_user_ratio: 0.3
-    persona_mix: {casual: 5, grinder: 4, spectator: 1}
+    persona_mix: {casual: 4, grinder: 5, spectator: 1}
   - name: crash
-    duration: 15s
-    active_users: {to: 50}
+    duration: 10s
+    active_users: {to: 100}
     excess_sessions: cancel      # shed the newest sessions instead of letting them finish
     new_user_ratio: 0
     persona_mix: {casual: 1}
   - name: recovery
-    duration: 3m
-    active_users: 50
+    duration: 4m
+    active_users: 100
     new_user_ratio: 0.1
     persona_mix: {casual: 6, grinder: 2, spectator: 2}

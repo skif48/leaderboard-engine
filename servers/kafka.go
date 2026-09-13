@@ -3,19 +3,20 @@ package servers
 import (
 	"context"
 	"encoding/json"
-	"github.com/VictoriaMetrics/metrics"
 	"github.com/segmentio/kafka-go"
 	"github.com/skif48/leaderboard-engine/app_config"
 	"github.com/skif48/leaderboard-engine/entities"
 	"github.com/skif48/leaderboard-engine/graceful_shutdown"
 	"github.com/skif48/leaderboard-engine/services"
+	"github.com/skif48/leaderboard-engine/telemetry"
 	"log/slog"
 	"sync"
 	"time"
 )
 
 type chMsg struct {
-	ga *entities.GameAction
+	ga         *entities.GameAction
+	enqueuedAt time.Time
 }
 
 type KafkaConsumer struct {
@@ -46,10 +47,12 @@ func RunKafkaConsumer(ac *app_config.AppConfig, gas *services.GameActionsService
 
 	for i := 0; i < len(kc.ch); i++ {
 		kc.ch[i] = make(chan *chMsg, ac.KafkaLeaderboardTopicConsumerBufferSize)
+		telemetry.RegisterWorkerQueue(i, kc.ch[i])
 	}
 
 	kc.runWorkers()
 	ctx, cancel := context.WithCancel(context.Background())
+	telemetry.PollKafkaReader(ctx, r)
 	graceful_shutdown.AddInputShutdownFunc(func() {
 		slog.Info("Kafka consumer stopping")
 		cancel()
@@ -75,13 +78,13 @@ func (kc *KafkaConsumer) runWorkers() {
 			defer kc.workersWg.Done()
 			ch := kc.ch[i]
 			for m := range ch {
+				telemetry.ObserveQueueWait(m.enqueuedAt)
 				start := time.Now()
-				if err := kc.gas.HandleAction(m.ga); err != nil {
+				err := kc.gas.HandleAction(m.ga)
+				telemetry.ObserveHandle(start, err)
+				if err != nil {
 					slog.With("error", err).Error("Failed to handle action")
-					continue
 				}
-				metrics.GetOrCreateCounter(`kafka_processed_messages{topic="leaderboard"}`).Inc()
-				metrics.GetOrCreateHistogram(`kafka_processing_time_milliseconds{topic="leaderboard"}`).Update(float64(time.Since(start).Milliseconds()))
 			}
 		}(i)
 	}
@@ -96,15 +99,18 @@ func (kc *KafkaConsumer) listen(ctx context.Context) {
 			}
 			break
 		}
+		telemetry.ObserveMessageAge(m.Time)
 		gameAction := &entities.GameAction{}
 		if err := json.Unmarshal(m.Value, gameAction); err != nil {
+			telemetry.CountUnmarshalError()
 			slog.Error(err.Error())
 			continue
 		}
 		leaderboardId := gameAction.LeaderboardId
 		channelId := leaderboardId % len(kc.ch)
 		kc.ch[channelId] <- &chMsg{
-			ga: gameAction,
+			ga:         gameAction,
+			enqueuedAt: time.Now(),
 		}
 	}
 }

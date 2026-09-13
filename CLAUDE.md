@@ -27,8 +27,10 @@ docker build -f bot/Dockerfile -t leaderboard-bot:dev .
 # Start infrastructure (Kafka, Redis cluster, ScyllaDB)
 docker-compose up -d
 
-# Start monitoring stack (VictoriaMetrics, Grafana)
+# Start monitoring stack (VictoriaMetrics, Grafana on :3001)
 docker-compose -f docker-compose.metrics.yml up -d
+# After editing prometheus.yml, reload VictoriaMetrics without a restart
+curl -X POST localhost:8428/-/reload
 ```
 
 The server has no automated tests; manual API testing is done via `users.http` (IDE REST client format). The bot has unit tests under `bot/internal/`.
@@ -82,4 +84,13 @@ All config is via environment variables (see `app_config/app_config.go`). Key de
 - `POST /api/v1/users/actions` — Submit game action
 - `GET /leaderboards` — HTML leaderboard view
 - `GET /metrics` — Prometheus metrics
+
+## Monitoring
+
+- Engine metrics on `:3000/metrics`, bot on `:9100/metrics`, both scraped by VictoriaMetrics via `prometheus.yml`.
+- All engine metrics live in `telemetry/` and are `engine_`-prefixed: histograms are seconds (`_seconds`), counters end in `_total`, label values are bounded. Never build a metric name outside that package. HTTP metrics are labelled by route pattern (`route="/api/v1/users/:userId/profile"`), never the raw path; unmatched requests get `route="<unmatched>"`.
+- Instrumentation points: HTTP middleware (`servers/middleware/metrics.go`), Kafka worker pipeline and reader stats (`servers/kafka.go`), producer writer stats (`services/game_actions.go`), Scylla via gocql `QueryObserver` with a per-method `op` label (`repositories/user_profile.go`), Redis via a `rueidishook` wrapper (`inits/redis.go`).
+- Profiler: `go tool pprof http://localhost:3000/debug/pprof/profile?seconds=10` while under load.
+- Infra exporters in `docker-compose.yml`: `kafka-exporter` (`:9308`, consumer lag as `kafka_consumergroup_lag_sum`), `redis-exporter` (`:9121`, multi-target over the six cluster nodes), Scylla's native endpoint (`:9180`). EKS manifests for the exporters against MSK/ElastiCache live in `deploy/kafka-exporter/` and `deploy/redis-exporter/`.
+- Grafana dashboards are provisioned from `grafana/provisioning/dashboards/`: "Engine overview" (`engine-overview.json`) and "Kafka lag" (`kafka-lag.json`).
 - `POST /backoffice-api/purge` — Clear all data (note: truncates ScyllaDB only; Redis leaderboards/XP are not cleared)

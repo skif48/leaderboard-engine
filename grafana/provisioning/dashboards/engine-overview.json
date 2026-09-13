@@ -1,0 +1,1555 @@
+{
+  "title": "Engine overview",
+  "uid": "engine-overview",
+  "tags": [
+    "leaderboard-engine"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "DS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "VictoriaMetrics",
+          "value": "VictoriaMetrics"
+        },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Throughput",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP requests/s by route",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (route) (rate(engine_http_requests_total[1m]))",
+          "legendFormat": "{{route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Kafka messages/s: produced vs consumed",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(engine_kafka_writer_messages_total[1m])",
+          "legendFormat": "produced (writer)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(engine_kafka_consumer_messages_total{result=\"processed\"}[1m]))",
+          "legendFormat": "consumed (worker ok)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(engine_kafka_consumer_messages_total{result!=\"processed\"}[1m]))",
+          "legendFormat": "failed (worker)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Consumer lag: offsets (exporter) vs message age p99 (engine)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kafka_consumergroup_lag_sum)",
+          "legendFormat": "lag (messages)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_kafka_consumer_message_age_seconds_bucket[1m])) by (vmrange))",
+          "legendFormat": "message age p99 (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Consumer pipeline",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Worker handle duration",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum(rate(engine_kafka_consumer_handle_duration_seconds_bucket[1m])) by (vmrange))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(engine_kafka_consumer_handle_duration_seconds_bucket[1m])) by (vmrange))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_kafka_consumer_handle_duration_seconds_bucket[1m])) by (vmrange))",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Queue wait (enqueue to pickup)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum(rate(engine_kafka_consumer_queue_wait_seconds_bucket[1m])) by (vmrange))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_kafka_consumer_queue_wait_seconds_bucket[1m])) by (vmrange))",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Worker queue depth / capacity",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "engine_kafka_consumer_queue_depth",
+          "legendFormat": "worker {{worker}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "max(engine_kafka_consumer_queue_capacity)",
+          "legendFormat": "capacity",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Consumer errors/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(engine_kafka_consumer_messages_total{result!=\"processed\"}[1m]))",
+          "legendFormat": "{{result}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "rate(engine_kafka_reader_errors_total[1m])",
+          "legendFormat": "reader errors",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "rate(engine_kafka_reader_rebalances_total[1m])",
+          "legendFormat": "rebalances",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Reader fetch: wait avg / fetch size avg",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "engine_kafka_reader_wait_seconds_avg",
+          "legendFormat": "wait avg (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "engine_kafka_reader_fetch_size_avg",
+          "legendFormat": "fetch size avg (msgs)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "HTTP latency p99 by route",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_http_request_duration_seconds_bucket[1m])) by (vmrange, route))",
+          "legendFormat": "{{route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Dependencies (engine-side client view)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Scylla query p99 by op",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_scylla_query_duration_seconds_bucket[1m])) by (vmrange, op))",
+          "legendFormat": "{{op}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Redis command p99 by cmd",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_redis_command_duration_seconds_bucket[1m])) by (vmrange, cmd))",
+          "legendFormat": "{{cmd}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Dependency ops/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (op) (rate(engine_scylla_queries_total[1m]))",
+          "legendFormat": "scylla {{op}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (cmd) (rate(engine_redis_commands_total[1m]))",
+          "legendFormat": "redis {{cmd}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Dependency errors/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (op,result) (rate(engine_scylla_queries_total{result!=\"ok\"}[1m]))",
+          "legendFormat": "scylla {{op}} {{result}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (cmd,result) (rate(engine_redis_commands_total{result!=\"ok\"}[1m]))",
+          "legendFormat": "redis {{cmd}} {{result}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(engine_scylla_query_attempts_total[1m]))",
+          "legendFormat": "scylla retries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Redis DoMulti batch size",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 35,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum(rate(engine_redis_multi_batch_size_bucket[1m])) by (vmrange))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum(rate(engine_redis_multi_batch_size_bucket[1m])) by (vmrange))",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Game actions/s by type",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 35,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (action) (rate(engine_game_actions_total[1m]))",
+          "legendFormat": "{{action}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Producer (kafka-go Writer)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Batch size avg / max",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "engine_kafka_writer_batch_size_avg",
+          "legendFormat": "avg",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "engine_kafka_writer_batch_size_max",
+          "legendFormat": "max",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Batch wait / write / wait avg",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 44,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "engine_kafka_writer_batch_wait_seconds_avg",
+          "legendFormat": "batch wait (fill time)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "engine_kafka_writer_write_seconds_avg",
+          "legendFormat": "write (broker rtt)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "engine_kafka_writer_wait_seconds_avg",
+          "legendFormat": "caller wait",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Writer errors / retries per s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 44,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(engine_kafka_writer_errors_total[1m])",
+          "legendFormat": "errors",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "rate(engine_kafka_writer_retries_total[1m])",
+          "legendFormat": "retries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "row",
+      "title": "Go runtime",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Goroutines",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "go_goroutines{job=\"my-app\"}",
+          "legendFormat": "goroutines",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Heap in use",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 53,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "go_memstats_heap_inuse_bytes{job=\"my-app\"}",
+          "legendFormat": "heap",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "GC pause p99",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 53,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum(rate(go_gc_pauses_seconds_bucket{job=\"my-app\"}[1m])) by (vmrange))",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Scheduler latency p99",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 53,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum(rate(go_sched_latencies_seconds_bucket{job=\"my-app\"}[1m])) by (vmrange))",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "row",
+      "title": "Infrastructure (server-side)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 61,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Scylla reactor utilization %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg(scylla_reactor_utilization)",
+          "legendFormat": "avg over shards",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Scylla coordinator latency p99 (read/write)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 62,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum(rate(scylla_storage_proxy_coordinator_read_latency_bucket[1m])) by (le)) / 1e6",
+          "legendFormat": "read p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum(rate(scylla_storage_proxy_coordinator_write_latency_bucket[1m])) by (le)) / 1e6",
+          "legendFormat": "write p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Scylla ops/s (coordinator)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 62,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(scylla_storage_proxy_coordinator_reads_local_node[1m])) + sum(rate(scylla_storage_proxy_coordinator_reads_remote_node[1m]))",
+          "legendFormat": "reads",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(scylla_storage_proxy_coordinator_total_write_attempts_local_node[1m])) + sum(rate(scylla_storage_proxy_coordinator_total_write_attempts_remote_node[1m]))",
+          "legendFormat": "writes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Redis ops/s per node",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(redis_commands_processed_total[1m])",
+          "legendFormat": "{{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Redis avg command latency by cmd",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 70,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cmd) (rate(redis_commands_duration_seconds_total[1m])) / sum by (cmd) (rate(redis_commands_total[1m]))",
+          "legendFormat": "{{cmd}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "Redis connected clients per node",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 70,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "redis_connected_clients",
+          "legendFormat": "{{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          }
+        }
+      ]
+    }
+  ]
+}
